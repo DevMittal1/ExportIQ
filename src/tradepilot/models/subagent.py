@@ -74,5 +74,16 @@ AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
         ],
         "max_tool_calls": 8,
         "timeout_seconds": 30
+    },
+    "trade_advisory": {
+        "name": "TradeAdvisoryAgent",
+        "description": "Provide strategic advisory on Incoterms, trade finance, export documentation, customs clearance, and global logistics.",
+        "skills": ["tariff-market-access", "trade-data-analysis"],
+        "tools": [
+            "compliance.search_product_requirements",
+            "skills.read_skill"
+        ],
+        "max_tool_calls": 6,
+        "timeout_seconds": 30
     }
 }

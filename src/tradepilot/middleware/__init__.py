@@ -7,6 +7,14 @@ from .security import PromptInjectionGuard, HumanApprovalMiddleware
 from .provenance import EvidenceProvenanceMiddleware
 from .rate_limit import RateLimitRetryMiddleware
 from .observability import ObservabilityMiddleware
+from .tool_hooks import (
+    USAGE_TRACKER,
+    pre_tool_hook,
+    post_tool_hook,
+    ToolBudgetExceededError,
+    ToolAuthorizationError,
+    ToolCallContext
+)
 
 __all__ = [
     "RequestValidationMiddleware",
@@ -19,4 +27,10 @@ __all__ = [
     "EvidenceProvenanceMiddleware",
     "RateLimitRetryMiddleware",
     "ObservabilityMiddleware",
+    "USAGE_TRACKER",
+    "pre_tool_hook",
+    "post_tool_hook",
+    "ToolBudgetExceededError",
+    "ToolAuthorizationError",
+    "ToolCallContext"
 ]

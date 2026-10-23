@@ -25,12 +25,14 @@ async def dispatch_subagent(
     from .market_access import run_market_access
     from .buyer_discovery import run_buyer_discovery
     from .evidence_verification import run_evidence_verification
+    from .trade_advisory import run_trade_advisory
     
     handlers = {
         "trade_research": run_trade_research,
         "market_access": run_market_access,
         "buyer_discovery": run_buyer_discovery,
-        "evidence_verification": run_evidence_verification
+        "evidence_verification": run_evidence_verification,
+        "trade_advisory": run_trade_advisory
     }
     
     handler = handlers.get(agent_key)

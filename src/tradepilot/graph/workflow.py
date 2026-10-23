@@ -8,9 +8,11 @@ from ..models.state import TradePilotState
 from .nodes import (
     validate_request_node,
     orchestrator_planning_node,
+    parallel_research_node,
     trade_research_node,
     market_access_node,
     buyer_discovery_node,
+    trade_advisory_node,
     evidence_verification_node,
     deterministic_scoring_node,
     generate_report_node
@@ -19,15 +21,17 @@ from .edges import route_after_validation, route_after_verification
 
 
 def create_tradepilot_graph(checkpointer: Optional[Any] = None) -> Any:
-    """Build and compile the multi-agent LangGraph workflow."""
+    """Build and compile the multi-agent LangGraph workflow with parallel execution."""
     workflow = StateGraph(TradePilotState)
     
     # 1. Register Graph Nodes
     workflow.add_node("validate_request", validate_request_node)
     workflow.add_node("orchestrator_planning", orchestrator_planning_node)
+    workflow.add_node("parallel_research", parallel_research_node)
     workflow.add_node("trade_research", trade_research_node)
     workflow.add_node("market_access", market_access_node)
     workflow.add_node("buyer_discovery", buyer_discovery_node)
+    workflow.add_node("trade_advisory", trade_advisory_node)
     workflow.add_node("evidence_verification", evidence_verification_node)
     workflow.add_node("deterministic_scoring", deterministic_scoring_node)
     workflow.add_node("generate_report", generate_report_node)
@@ -44,17 +48,15 @@ def create_tradepilot_graph(checkpointer: Optional[Any] = None) -> Any:
         }
     )
     
-    # Sequential subagent execution pipeline
-    workflow.add_edge("orchestrator_planning", "trade_research")
-    workflow.add_edge("trade_research", "market_access")
-    workflow.add_edge("market_access", "buyer_discovery")
-    workflow.add_edge("buyer_discovery", "evidence_verification")
+    # Core execution pipeline: planning -> concurrent parallel research -> verification -> scoring -> report
+    workflow.add_edge("orchestrator_planning", "parallel_research")
+    workflow.add_edge("parallel_research", "evidence_verification")
     
     workflow.add_conditional_edges(
         "evidence_verification",
         route_after_verification,
         {
-            "targeted_follow_up": "trade_research",
+            "targeted_follow_up": "parallel_research",
             "deterministic_scoring": "deterministic_scoring"
         }
     )

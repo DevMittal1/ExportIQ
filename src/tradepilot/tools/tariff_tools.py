@@ -1,6 +1,7 @@
-"""Tariff and Rules of Origin tools for customs friction evaluation."""
+"""Tariff and Rules of Origin tools for customs friction evaluation supporting single and batch queries."""
 
-from typing import Any, Dict, Optional
+import asyncio
+from typing import Any, Dict, List, Optional
 from .registry import register_tool
 from ..clients.usitc import USITCHtsClient
 from ..clients.eu_taric import EUTaricClient
@@ -10,32 +11,13 @@ _usitc_client = USITCHtsClient(base_url=settings.USITC_BASE_URL)
 _taric_client = EUTaricClient(base_url=settings.EU_TARIC_BASE_URL)
 
 
-@register_tool(
-    name="tariffs.get_applied_rate",
-    description=(
-        "Find the standard Most-Favoured-Nation (MFN) or statutory applied customs tariff for a product imported into a destination country from a specified origin. "
-        "Returns ad valorem duty rate, specific duties, tariff schedule edition, legal notes, and official source. "
-        "Use this as the baseline tariff benchmark. "
-        "CANNOT confirm preferential rates under Free Trade Agreements without calling check_preferential_rate."
-    ),
-    input_schema={
-        "type": "object",
-        "properties": {
-            "hs_code": {"type": "string", "description": "Harmonized System product code"},
-            "origin": {"type": "string", "description": "ISO-3 origin country code"},
-            "destination": {"type": "string", "description": "ISO-3 destination country code"},
-            "date": {"type": "string", "description": "ISO-8601 date (default current year)"}
-        },
-        "required": ["hs_code", "origin", "destination"]
-    }
-)
-async def get_applied_rate(
+async def _get_single_applied_rate(
     hs_code: str,
     origin: str,
     destination: str,
     date: Optional[str] = "2024-01-01"
 ) -> Dict[str, Any]:
-    """Retrieve applied customs duty for destination."""
+    """Retrieve applied customs duty for a single destination."""
     dest_upper = destination.upper()
     if dest_upper == "USA":
         recs = await _usitc_client.search_tariff_rate(hs_code, origin)
@@ -70,36 +52,64 @@ async def get_applied_rate(
 
 
 @register_tool(
-    name="tariffs.check_preferential_rate",
+    name="tariffs.get_applied_rate",
     description=(
-        "Check whether a preferential tariff or tariff-rate quota applies between origin and destination under a trade agreement (e.g. FTA, EPA, GSP). "
-        "Identifies applicable preferential margin, agreement name, and mandatory qualification conditions. "
-        "CANNOT certify origin without verifying specific product origin rules."
+        "Find the standard Most-Favoured-Nation (MFN) or statutory applied customs tariff for a product imported into one or multiple destination countries. "
+        "Returns ad valorem duty rate, specific duties, tariff schedule edition, legal notes, and official source. "
+        "Supports single destination or a batch of destinations simultaneously."
     ),
     input_schema={
         "type": "object",
         "properties": {
-            "hs_code": {"type": "string"},
-            "origin": {"type": "string"},
-            "destination": {"type": "string"},
-            "date": {"type": "string"}
+            "hs_code": {"type": "string", "description": "Harmonized System product code"},
+            "origin": {"type": "string", "description": "ISO-3 origin country code"},
+            "destination": {"type": "string", "description": "Single ISO-3 destination country code"},
+            "destinations": {"type": "array", "items": {"type": "string"}, "description": "Batch of destination ISO-3 codes"},
+            "date": {"type": "string", "description": "ISO-8601 date (default current year)"}
         },
-        "required": ["hs_code", "origin", "destination"]
+        "required": ["hs_code", "origin"]
     }
 )
-async def check_preferential_rate(
+async def get_applied_rate(
     hs_code: str,
     origin: str,
-    destination: str,
+    destination: Optional[str] = None,
+    destinations: Optional[List[str]] = None,
     date: Optional[str] = "2024-01-01"
 ) -> Dict[str, Any]:
-    """Check for preferential trade agreement tariffs."""
-    orig = origin.upper()
-    dest = destination.upper()
-    
-    # Example logic: India - UAE CEPA
+    """Retrieve applied customs duty for destination(s)."""
+    # Batch processing
+    if destinations:
+        tasks = [_get_single_applied_rate(hs_code, origin, d, date) for d in destinations]
+        results = await asyncio.gather(*tasks)
+        rates_by_dest = {r["destination"]: r for r in results}
+        all_evidence = []
+        for r in results:
+            all_evidence.extend(r.get("evidence_records", []))
+            
+        return {
+            "status": "success",
+            "is_batch": True,
+            "hs_code": hs_code,
+            "origin": origin,
+            "destinations": destinations,
+            "rates_by_destination": rates_by_dest,
+            "results": results,
+            "evidence_records": all_evidence
+        }
+        
+    if not destination:
+        raise ValueError("Either 'destination' or 'destinations' batch list must be provided.")
+        
+    return await _get_single_applied_rate(hs_code, origin, destination, date)
+
+
+def _check_single_pref(orig: str, dest: str) -> Dict[str, Any]:
+    """Internal evaluation of preferential agreement between two countries."""
+    # India - UAE CEPA
     if (orig == "IND" and dest == "ARE") or (orig == "ARE" and dest == "IND"):
         return {
+            "destination": dest,
             "is_preferential_available": True,
             "agreement_name": "India-UAE Comprehensive Economic Partnership Agreement (CEPA)",
             "preferential_rate": "0.0% (Duty free entry)",
@@ -109,6 +119,7 @@ async def check_preferential_rate(
     # India - EU (No active FTA, GSP graduated for coffee/textiles)
     elif orig == "IND" and dest in ["DEU", "FRA", "ITA", "NLD", "ESP"]:
         return {
+            "destination": dest,
             "is_preferential_available": False,
             "agreement_name": "EU GSP (Graduated / Non-eligible for Chapter 09)",
             "preferential_rate": "Standard EU MFN 7.5% applies",
@@ -118,6 +129,7 @@ async def check_preferential_rate(
     # US - USMCA (e.g. Mexico/Canada to USA)
     elif (orig in ["CAN", "MEX"]) and dest == "USA":
         return {
+            "destination": dest,
             "is_preferential_available": True,
             "agreement_name": "United States-Mexico-Canada Agreement (USMCA)",
             "preferential_rate": "0.0% (Free)",
@@ -126,12 +138,63 @@ async def check_preferential_rate(
         }
     else:
         return {
+            "destination": dest,
             "is_preferential_available": False,
             "agreement_name": "None active",
             "preferential_rate": "Standard MFN rate applies",
             "preferential_margin": "0.0%",
             "proof_of_origin_required": "Standard Non-Preferential Certificate of Origin"
         }
+
+
+@register_tool(
+    name="tariffs.check_preferential_rate",
+    description=(
+        "Check whether a preferential tariff or tariff-rate quota applies under a trade agreement (e.g. FTA, EPA, GSP). "
+        "Supports single destination or a batch of destinations simultaneously."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "hs_code": {"type": "string"},
+            "origin": {"type": "string"},
+            "destination": {"type": "string"},
+            "destinations": {"type": "array", "items": {"type": "string"}},
+            "date": {"type": "string"}
+        },
+        "required": ["hs_code", "origin"]
+    }
+)
+async def check_preferential_rate(
+    hs_code: str,
+    origin: str,
+    destination: Optional[str] = None,
+    destinations: Optional[List[str]] = None,
+    date: Optional[str] = "2024-01-01"
+) -> Dict[str, Any]:
+    """Check for preferential trade agreement tariffs for single or multiple destinations."""
+    orig = origin.upper()
+    
+    if destinations:
+        results = [_check_single_pref(orig, d.upper()) for d in destinations]
+        return {
+            "status": "success",
+            "is_batch": True,
+            "hs_code": hs_code,
+            "origin": origin,
+            "destinations": destinations,
+            "results_by_destination": {r["destination"]: r for r in results},
+            "results": results
+        }
+        
+    if not destination:
+        raise ValueError("Either 'destination' or 'destinations' batch list must be provided.")
+        
+    res = _check_single_pref(orig, destination.upper())
+    res["status"] = "success"
+    res["hs_code"] = hs_code
+    res["origin"] = origin
+    return res
 
 
 @register_tool(

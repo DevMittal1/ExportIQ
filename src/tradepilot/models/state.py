@@ -11,11 +11,13 @@ class TradePilotState(TypedDict):
     """Complete execution state of the TradePilot LangGraph workflow."""
     
     # User Inputs & Query Definitions
-    product_query: str
+    query: Optional[str]
+    product_query: Optional[str]
     hs_code: Optional[str]
-    origin_country: str
+    origin_country: Optional[str]
     candidate_destinations: List[str]
     reference_years: List[int]
+    query_intent: Optional[str]
     
     # Workflow Execution State
     active_skills: List[str]

@@ -1,4 +1,4 @@
-"""Agent-facing tool registry, decorator, and execution dispatcher."""
+"""Agent-facing tool registry, decorator, and execution dispatcher with hook interception."""
 
 from typing import Any, Callable, Dict, List, Optional
 import inspect
@@ -31,13 +31,29 @@ def register_tool(name: str, description: str, input_schema: Dict[str, Any]):
     return decorator
 
 
-async def execute_tool(tool_name: str, **kwargs) -> Any:
-    """Execute a registered tool by canonical name."""
+async def execute_tool(tool_name: str, agent_name: Optional[str] = None, **kwargs) -> Any:
+    """Execute a registered tool by canonical name through pre/post execution hooks."""
     if tool_name not in TOOL_REGISTRY:
         raise ValueError(f"Tool '{tool_name}' not found in TOOL_REGISTRY. Available: {list(TOOL_REGISTRY.keys())}")
     
+    # Lazy import to prevent circular dependencies
+    from ..middleware.tool_hooks import pre_tool_hook, post_tool_hook
+    
+    # 1. Pre-execution Hook (authorization, budget check, start timing)
+    context = await pre_tool_hook(tool_name=tool_name, arguments=kwargs, agent_name=agent_name)
+    
     tool = TOOL_REGISTRY[tool_name]
     fn = tool.function
-    if inspect.iscoroutinefunction(fn):
-        return await fn(**kwargs)
-    return fn(**kwargs)
+    
+    try:
+        # 2. Tool Execution
+        if inspect.iscoroutinefunction(fn):
+            result = await fn(**kwargs)
+        else:
+            result = fn(**kwargs)
+            
+        # 3. Post-execution Hook (latency timing, metrics tracking, output validation)
+        return await post_tool_hook(context=context, result=result, status="success")
+    except Exception as exc:
+        await post_tool_hook(context=context, result=None, status="error", error=exc)
+        raise exc
