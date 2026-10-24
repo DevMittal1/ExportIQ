@@ -76,14 +76,22 @@ def verify_claim(
 def find_conflicts(evidence_records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Scan evidence records for statistical or regulatory contradictions."""
     conflicts = []
-    # Check for trade flow vs mirror statistics discrepancy
-    comtrade_recs = [r for r in evidence_records if r.get("source", {}).get("provider") == "UN Comtrade"]
+    def _get_provider(rec: Dict[str, Any]) -> str:
+        src = rec.get("source")
+        if isinstance(src, dict):
+            return str(src.get("provider", "Unknown"))
+        if isinstance(src, str):
+            return src
+        return "Unknown"
+
+    comtrade_recs = [r for r in evidence_records if "comtrade" in _get_provider(r).lower()]
     
     # Check duplicate periods for same reporter and product
     seen = {}
     for r in comtrade_recs:
         key = (r.get("reporter_country"), r.get("period"), r.get("product_hs_code"))
         val = float(r.get("value", 0))
+        prov = _get_provider(r)
         if key in seen:
             prev_val = seen[key]["value"]
             if prev_val > 0:
@@ -91,12 +99,12 @@ def find_conflicts(evidence_records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 if diff_pct > 15.0:
                     conflicts.append({
                         "metric": f"Trade value discrepancy for {key}",
-                        "discrepant_sources": [seen[key]["provider"], r.get("source", {}).get("provider")],
+                        "discrepant_sources": [seen[key]["provider"], prov],
                         "variance_percent": round(diff_pct, 1),
                         "recommended_resolution": "Privilege national customs schedule and note mirror trade variance in limitations."
                     })
         else:
-            seen[key] = {"value": val, "provider": r.get("source", {}).get("provider", "Unknown")}
+            seen[key] = {"value": val, "provider": prov}
             
     return {
         "status": "success",

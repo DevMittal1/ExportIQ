@@ -3,488 +3,637 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TradePilot AI | API Control Plane & Telemetry Dashboard</title>
+  <title>TradePilot — Telemetry & Quota Ledger</title>
+  <meta name="description" content="Persistent SQLite telemetry, tool latency metrics, and API quota budgets.">
+
+  <!-- Favicon: Trade Desk Emblem -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+  <link rel="alternate icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F4E46'/%3E%3Cpath d='M7 10h18M16 10v14M11 24h10' stroke='%23F4F1EA' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='17' r='2.5' fill='%23D88E35'/%3E%3C/svg%3E">
+
+  <!-- Typography: Newsreader, Source Serif 4, IBM Plex Sans, IBM Plex Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+
   <style>
+    /* ==========================================================================
+       Design System Tokens — Trade Desk / Customs Ledger
+       ========================================================================== */
     :root {
-      --bg-dark: #0a0e17;
-      --bg-card: rgba(17, 24, 39, 0.75);
-      --bg-card-hover: rgba(30, 41, 59, 0.85);
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      --border-focus: rgba(56, 189, 248, 0.4);
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --cyan: #06b6d4;
-      --blue: #3b82f6;
-      --emerald: #10b981;
-      --amber: #f59e0b;
-      --rose: #f43f5e;
-      --purple: #a855f7;
+      --bg: #F4F1EA;
+      --surface: #FBFAF6;
+      --surface-raised: #FFFFFF;
+      --ink: #1B1F23;
+      --ink-muted: #5C6169;
+      --ink-faint: #8C929A;
+      --rule: #D9D4C7;
+      --rule-subtle: #E8E4DA;
+
+      --accent: #1F4E46;
+      --accent-hover: #163832;
+      --accent-surface: rgba(31, 78, 70, 0.08);
+      --warn: #9A5B13;
+      --warn-surface: rgba(154, 91, 19, 0.08);
+      --danger: #8C2F2B;
+      --danger-surface: rgba(140, 47, 43, 0.08);
+      --ok: #2F6B3F;
+      --ok-surface: rgba(47, 107, 63, 0.08);
+
+      --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+      --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "IBM Plex Mono", SFMono-Regular, Consolas, monospace;
+
+      --header-height: 48px;
+      --radius: 4px;
+      --radius-sm: 2px;
+      --border: 1px solid var(--rule);
+      --focus-ring: 2px solid var(--accent);
+      --focus-offset: 2px;
     }
 
+    [data-theme="dark"] {
+      --bg: #14171A;
+      --surface: #1B1F23;
+      --surface-raised: #22272E;
+      --ink: #E6E3DB;
+      --ink-muted: #8E939B;
+      --ink-faint: #5C626C;
+      --rule: #2E343B;
+      --rule-subtle: #24292F;
+
+      --accent: #5E9C8F;
+      --accent-hover: #75B0A4;
+      --accent-surface: rgba(94, 156, 143, 0.12);
+      --warn: #D88E35;
+      --warn-surface: rgba(216, 142, 53, 0.12);
+      --danger: #D9534F;
+      --danger-surface: rgba(217, 83, 79, 0.12);
+      --ok: #4E9A63;
+      --ok-surface: rgba(78, 154, 99, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #14171A;
+        --surface: #1B1F23;
+        --surface-raised: #22272E;
+        --ink: #E6E3DB;
+        --ink-muted: #8E939B;
+        --ink-faint: #5C626C;
+        --rule: #2E343B;
+        --rule-subtle: #24292F;
+
+        --accent: #5E9C8F;
+        --accent-hover: #75B0A4;
+        --accent-surface: rgba(94, 156, 143, 0.12);
+        --warn: #D88E35;
+        --warn-surface: rgba(216, 142, 53, 0.12);
+        --danger: #D9534F;
+        --danger-surface: rgba(217, 83, 79, 0.12);
+        --ok: #4E9A63;
+        --ok-surface: rgba(78, 154, 99, 0.12);
+      }
+    }
+
+    /* Custom Scrollbar */
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--rule) transparent;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--rule);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--ink-muted);
     }
 
     body {
-      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--bg-dark) 55%);
-      color: var(--text-main);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      line-height: 1.5;
+      letter-spacing: -0.01em;
       min-height: 100vh;
-      padding-bottom: 60px;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Container */
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 0 24px;
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    a:hover {
+      color: var(--accent-hover);
     }
 
-    /* Header */
-    header {
-      background: rgba(10, 14, 23, 0.8);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border-subtle);
+    /* ==========================================================================
+       Header (48px Slim, Editorial)
+       ========================================================================== */
+    header[role="banner"] {
+      height: var(--header-height);
+      background: var(--surface);
+      border-bottom: var(--border);
       position: sticky;
       top: 0;
-      z-index: 50;
-      padding: 16px 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
     }
 
     .header-inner {
+      width: 100%;
+      padding: 0 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    .logo-group {
+    .brand-group {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 12px;
     }
 
-    .logo-badge {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--cyan), var(--blue));
-      border-radius: 10px;
+    .brand-title {
+      font-family: var(--font-serif);
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .brand-descriptor {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+
+    .header-controls {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 20px;
-      box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+      gap: 16px;
     }
 
-    .title-group h1 {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-pill {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: var(--emerald);
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--emerald);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    select, button {
-      background: rgba(30, 41, 59, 0.6);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
+    select, button.btn-control {
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      font-size: 12px;
+      font-family: var(--font-sans);
+      padding: 4px 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
     }
 
-    select:hover, button:hover {
-      background: rgba(30, 41, 59, 0.9);
-      border-color: var(--border-focus);
+    select:focus, button.btn-control:focus {
+      outline: var(--focus-ring);
+      outline-offset: 1px;
     }
 
-    button.btn-primary {
-      background: linear-gradient(135deg, #0284c7, #2563eb);
+    .btn-action {
+      background: var(--accent);
+      color: var(--bg);
       border: none;
-      box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+      font-weight: 500;
+    }
+    .btn-action:hover {
+      background: var(--accent-hover);
     }
 
-    button.btn-primary:hover {
-      filter: brightness(1.15);
+    .btn-danger-outline {
+      background: transparent;
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .btn-danger-outline:hover {
+      background: var(--danger-surface);
     }
 
-    button.btn-danger {
-      background: rgba(244, 63, 94, 0.15);
-      border-color: rgba(244, 63, 94, 0.3);
-      color: #fda4af;
+    .header-link {
+      font-size: 12.5px;
+      color: var(--ink-muted);
+      text-decoration: none;
+    }
+    .header-link:hover {
+      color: var(--ink);
+      text-decoration: underline;
     }
 
-    button.btn-danger:hover {
-      background: rgba(244, 63, 94, 0.3);
+    .theme-toggle-btn {
+      background: transparent;
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      color: var(--ink-muted);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      cursor: pointer;
+      text-transform: uppercase;
     }
 
-    /* KPI Grid */
+    /* ==========================================================================
+       Dashboard Main Ledger Layout
+       ========================================================================== */
+    main.dashboard-container {
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 32px 64px 32px;
+      flex: 1;
+      box-sizing: border-box;
+    }
+
+    .page-lead {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: var(--border);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .page-lead h1 {
+      font-family: var(--font-serif);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .page-lead-meta {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-muted);
+    }
+
+    /* KPI Ledger Grid */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-      margin-top: 28px;
-    }
-
-    .kpi-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 20px;
-      transition: transform 0.2s, border-color 0.2s;
-      position: relative;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1px;
+      background: var(--rule);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
       overflow: hidden;
+      margin-bottom: 28px;
     }
 
-    .kpi-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(255, 255, 255, 0.18);
-    }
-
-    .kpi-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 3px;
-    }
-
-    .kpi-card.blue::before { background: linear-gradient(90deg, var(--cyan), var(--blue)); }
-    .kpi-card.emerald::before { background: linear-gradient(90deg, var(--emerald), #34d399); }
-    .kpi-card.purple::before { background: linear-gradient(90deg, var(--purple), #c084fc); }
-    .kpi-card.amber::before { background: linear-gradient(90deg, var(--amber), #fbbf24); }
-
-    .kpi-label {
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
-      margin-bottom: 8px;
-    }
-
-    .kpi-value {
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-    }
-
-    .kpi-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 6px;
+    .kpi-cell {
+      background: var(--surface);
+      padding: 16px 20px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 4px;
     }
 
-    /* Nav Tabs */
-    .tabs-nav {
-      display: flex;
-      gap: 8px;
-      margin: 32px 0 20px 0;
-      border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 12px;
+    .kpi-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
     }
 
-    .tab-btn {
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-note {
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    /* Ledger Tabs */
+    .tabs-strip {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 20px;
+    }
+
+    .tab-item {
       background: transparent;
       border: none;
-      color: var(--text-muted);
-      padding: 8px 16px;
-      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-muted);
+      padding: 10px 18px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 120ms ease-out;
+    }
+
+    .tab-item:hover {
+      color: var(--ink);
+    }
+
+    .tab-item.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
       font-weight: 600;
-      border-radius: 6px;
     }
 
-    .tab-btn.active {
-      background: rgba(56, 189, 248, 0.15);
-      color: var(--cyan);
-    }
-
-    /* Sections */
-    .section-panel {
+    .panel-block {
       display: none;
     }
-
-    .section-panel.active {
+    .panel-block.active {
       display: block;
     }
 
-    /* Tables */
-    .table-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      overflow: hidden;
-      margin-top: 16px;
+    /* Tables (Dense, 1px Hairlines) */
+    .ledger-table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      overflow-x: auto;
     }
 
-    .table-header-box {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border-subtle);
+    .table-top-bar {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--rule);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      background: var(--bg);
     }
 
-    .table-header-box h2 {
+    .table-top-title {
+      font-family: var(--font-serif);
       font-size: 16px;
       font-weight: 600;
+      color: var(--ink);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
-      text-align: left;
+      font-size: 12.5px;
     }
 
     th {
-      background: rgba(15, 23, 42, 0.6);
-      color: var(--text-muted);
-      padding: 12px 20px;
-      font-weight: 600;
-      text-transform: uppercase;
+      background: var(--bg);
+      font-family: var(--font-mono);
       font-size: 11px;
       letter-spacing: 0.05em;
-      border-bottom: 1px solid var(--border-subtle);
+      text-transform: uppercase;
+      text-align: left;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--rule);
+      border-right: 1px solid var(--rule);
+      color: var(--ink-muted);
+      font-weight: 500;
     }
 
     td {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border-subtle);
-      color: #cbd5e1;
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--rule);
+      border-right: 1px solid var(--rule);
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    th:last-child, td:last-child {
+      border-right: none;
+    }
+    tr:last-child td {
+      border-bottom: none;
     }
 
     tr:hover td {
-      background: rgba(30, 41, 59, 0.4);
+      background: var(--rule-subtle);
     }
 
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
-    .badge-error { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.25); }
-    .badge-tool { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); }
-
-    .code-text {
-      font-family: 'JetBrains Mono', monospace;
+    .mono-code {
+      font-family: var(--font-mono);
       font-size: 12px;
     }
 
-    /* Modal */
+    .status-text {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .status-text.ok { color: var(--ok); }
+    .status-text.err { color: var(--danger); }
+
+    /* Modal (Flat, 1px Border) */
     .modal-backdrop {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(6px);
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
       z-index: 100;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
-
     .modal-backdrop.open {
       display: flex;
     }
 
-    .modal-box {
-      background: #111827;
-      border: 1px solid var(--border-subtle);
-      width: 90%;
-      max-width: 750px;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 720px;
       max-height: 85vh;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .modal-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--rule);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16px;
+      background: var(--bg);
     }
 
-    pre {
-      background: #030712;
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 16px;
-      overflow-x: auto;
-      font-family: 'JetBrains Mono', monospace;
+    .modal-title {
+      font-family: var(--font-serif);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+
+    pre.code-viewer {
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-family: var(--font-mono);
       font-size: 12px;
-      color: #38bdf8;
+      color: var(--ink);
+      line-height: 1.5;
+      overflow-x: auto;
+      max-height: 50vh;
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <div class="container header-inner">
-      <div class="logo-group">
-        <div class="logo-badge">⚡</div>
-        <div class="title-group">
-          <h1>TradePilot API Telemetry & Quota Plane</h1>
-          <span class="status-pill"><span class="status-dot"></span> SQLite Persistent Active</span>
-        </div>
+  <!-- Slim 48px Header -->
+  <header role="banner">
+    <div class="header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-title">TradePilot AI</a>
+        <span class="brand-descriptor">Telemetry & Quota Ledger</span>
       </div>
-      <div class="header-actions">
-        <select id="refreshRate" onchange="updateInterval()">
-          <option value="2000">Auto Refresh (2s)</option>
-          <option value="5000" selected>Auto Refresh (5s)</option>
-          <option value="10000">Auto Refresh (10s)</option>
+
+      <div class="header-controls">
+        <select id="refreshRate" onchange="updateInterval()" aria-label="Polling refresh rate">
+          <option value="2000">Poll (2s)</option>
+          <option value="5000" selected>Poll (5s)</option>
+          <option value="10000">Poll (10s)</option>
           <option value="0">Paused</option>
         </select>
-        <button class="btn-primary" onclick="loadAllData()">↻ Refresh</button>
-        <button class="btn-danger" onclick="resetMetrics()">Clear SQLite Data</button>
+        <button class="btn-control btn-action" onclick="loadAllData()">Refresh</button>
+        <button class="btn-control btn-danger-outline" onclick="resetMetrics()">Reset SQLite</button>
+        <a href="/" class="header-link">Advisory Desk</a>
+        <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle theme" onclick="toggleTheme()">Theme: Dark</button>
       </div>
     </div>
   </header>
 
-  <main class="container">
-    <!-- Top KPI Cards -->
-    <div class="kpi-grid">
-      <div class="kpi-card blue">
-        <div class="kpi-label">TOTAL TOOL INVOCATIONS</div>
+  <!-- Main Container -->
+  <main class="dashboard-container" role="main">
+    <div class="page-lead">
+      <div>
+        <h1>TradePilot API Telemetry & Quota Plane</h1>
+        <div style="font-size: 13px; color: var(--ink-muted); margin-top: 4px;">
+          Persistent SQLite execution audit trail, gateway latencies, and hard tool quotas.
+        </div>
+      </div>
+      <div class="page-lead-meta">ENGINE: SQLITE // PRE/POST TOOL HOOKS ACTIVE</div>
+    </div>
+
+    <!-- KPI Metric Cells -->
+    <section class="kpi-grid" aria-label="Telemetry Summary KPIs">
+      <div class="kpi-cell">
+        <span class="kpi-label">Total Invocations</span>
         <div class="kpi-value" id="totalCalls">0</div>
-        <div class="kpi-sub" id="distinctTools">0 distinct tools tracked</div>
+        <span class="kpi-note" id="distinctTools">0 distinct tools tracked</span>
       </div>
-
-      <div class="kpi-card emerald">
-        <div class="kpi-label">SUCCESS RATE</div>
+      <div class="kpi-cell">
+        <span class="kpi-label">Success Rate</span>
         <div class="kpi-value" id="successRate">100%</div>
-        <div class="kpi-sub" id="failedCount">0 errors recorded</div>
+        <span class="kpi-note" id="failedCount">0 errors recorded</span>
       </div>
-
-      <div class="kpi-card purple">
-        <div class="kpi-label">AVG EXECUTION LATENCY</div>
+      <div class="kpi-cell">
+        <span class="kpi-label">Avg Execution Latency</span>
         <div class="kpi-value" id="avgLatency">0 ms</div>
-        <div class="kpi-sub">Across all API gateways</div>
+        <span class="kpi-note">Across all gateway calls</span>
       </div>
-
-      <div class="kpi-card amber">
-        <div class="kpi-label">ACTIVE QUOTA BUDGETS</div>
+      <div class="kpi-cell">
+        <span class="kpi-label">Active Quota Budgets</span>
         <div class="kpi-value" id="activeBudgets">0</div>
-        <div class="kpi-sub">Hard rate-limit guards set</div>
+        <span class="kpi-note">Hard pre-tool caps enforced</span>
       </div>
-    </div>
+    </section>
 
-    <!-- Navigation Tabs -->
-    <div class="tabs-nav">
-      <button class="tab-btn active" onclick="switchTab('analytics')">📊 Live Tool Breakdown</button>
-      <button class="tab-btn" onclick="switchTab('budgets')">🛡️ Quota & Budget Control Plane</button>
-      <button class="tab-btn" onclick="switchTab('logs')">📜 Persistent Execution Logs (SQLite)</button>
-    </div>
+    <!-- Ledger Tabs -->
+    <nav class="tabs-strip" role="tablist">
+      <button class="tab-item active" onclick="switchTab('analytics')" role="tab" aria-selected="true">Tool Telemetry Breakdown</button>
+      <button class="tab-item" onclick="switchTab('budgets')" role="tab" aria-selected="false">Quota & Budget Controls</button>
+      <button class="tab-item" onclick="switchTab('logs')" role="tab" aria-selected="false">Persistent Execution Logs (SQLite)</button>
+    </nav>
 
     <!-- Tab 1: Live Tool Breakdown -->
-    <div id="panel-analytics" class="section-panel active">
-      <div class="table-card">
-        <div class="table-header-box">
-          <h2>Registered Tool Telemetry & Gateway Performance</h2>
+    <section id="panel-analytics" class="panel-block active" role="tabpanel">
+      <div class="ledger-table-wrap">
+        <div class="table-top-bar">
+          <h2 class="table-top-title">Registered Tool Performance Ledger</h2>
+          <span style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted);">DATA: SQLITE PERSISTENT</span>
         </div>
         <table>
           <thead>
             <tr>
-              <th>Tool Name</th>
-              <th>Calls</th>
-              <th>Successful</th>
-              <th>Errors</th>
-              <th>Avg Latency</th>
-              <th>Budget Cap</th>
-              <th>Status</th>
+              <th style="width: 28%;">Tool Name</th>
+              <th style="width: 12%;">Invocations</th>
+              <th style="width: 12%;">Successful</th>
+              <th style="width: 12%;">Errors</th>
+              <th style="width: 14%;">Avg Latency</th>
+              <th style="width: 12%;">Budget Cap</th>
+              <th style="width: 10%;">Status</th>
             </tr>
           </thead>
           <tbody id="toolsTableBody">
-            <tr><td colspan="7" style="text-align:center; padding: 24px;">Loading metrics...</td></tr>
+            <tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--ink-muted);">Loading telemetry records...</td></tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
 
     <!-- Tab 2: Quota & Budget Controls -->
-    <div id="panel-budgets" class="section-panel">
-      <div class="table-card">
-        <div class="table-header-box">
-          <h2>Interactive Rate Limits & Budget Enforcement</h2>
-          <span style="font-size:12px; color:var(--text-muted);">Set max calls per session/run. Pre-tool hook halts excess calls.</span>
+    <section id="panel-budgets" class="panel-block" role="tabpanel">
+      <div class="ledger-table-wrap">
+        <div class="table-top-bar">
+          <h2 class="table-top-title">Tool Execution Budget Limits</h2>
+          <span style="font-size: 12px; color: var(--ink-muted);">Pre-tool hook halts executions when limit is reached.</span>
         </div>
         <table>
           <thead>
             <tr>
-              <th>Tool Name</th>
-              <th>Current Invocations</th>
-              <th>Active Cap</th>
-              <th>New Limit</th>
-              <th>Action</th>
+              <th style="width: 35%;">Tool Name</th>
+              <th style="width: 18%;">Current Calls</th>
+              <th style="width: 15%;">Active Cap</th>
+              <th style="width: 18%;">New Limit</th>
+              <th style="width: 14%;">Action</th>
             </tr>
           </thead>
           <tbody id="budgetTableBody">
-            <!-- Populated via JS -->
+            <!-- Rendered via JS -->
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
 
     <!-- Tab 3: Persistent Execution Logs -->
-    <div id="panel-logs" class="section-panel">
-      <div class="table-card">
-        <div class="table-header-box">
-          <h2>Recent Tool Execution Audit Trail (SQLite)</h2>
+    <section id="panel-logs" class="panel-block" role="tabpanel">
+      <div class="ledger-table-wrap">
+        <div class="table-top-bar">
+          <h2 class="table-top-title">Execution Audit Trail</h2>
           <div>
-            <select id="logStatusFilter" onchange="loadLogs()">
+            <select id="logStatusFilter" onchange="loadLogs()" aria-label="Filter by status">
               <option value="">All Statuses</option>
               <option value="success">Success Only</option>
               <option value="error">Errors Only</option>
@@ -494,39 +643,72 @@
         <table>
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>Tool Name</th>
-              <th>Calling Agent</th>
-              <th>Latency</th>
-              <th>Status</th>
-              <th>Inspect</th>
+              <th style="width: 18%;">Timestamp</th>
+              <th style="width: 32%;">Tool Name</th>
+              <th style="width: 20%;">Calling Agent</th>
+              <th style="width: 12%;">Latency</th>
+              <th style="width: 10%;">Status</th>
+              <th style="width: 8%;">Inspect</th>
             </tr>
           </thead>
           <tbody id="logsTableBody">
-            <tr><td colspan="6" style="text-align:center; padding: 24px;">Loading logs...</td></tr>
+            <tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--ink-muted);">Loading persistent audit records...</td></tr>
           </tbody>
         </table>
       </div>
-    </div>
-
+    </section>
   </main>
 
-  <!-- Detail Modal -->
-  <div class="modal-backdrop" id="inspectModal" onclick="closeModal(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
+  <!-- Inspection Modal -->
+  <div class="modal-backdrop" id="inspectModal" onclick="closeModal(event)" role="dialog" aria-modal="true">
+    <div class="modal-card" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h3 id="modalTitle">Tool Execution Details</h3>
-        <button onclick="closeModal()">✕</button>
+        <h3 class="modal-title" id="modalTitle">Execution Record Detail</h3>
+        <button class="btn-control" onclick="closeModal()" aria-label="Close dialog">Close</button>
       </div>
-      <div style="margin-bottom: 12px; font-size:13px;" id="modalMeta"></div>
-      <div style="margin-bottom: 8px; font-size:12px; color:var(--text-muted);">INVOCATION ARGUMENTS & EVIDENCE SUMMARY:</div>
-      <pre id="modalContent"></pre>
+      <div class="modal-body">
+        <div id="modalMeta" style="margin-bottom: 12px; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-muted);"></div>
+        <div style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 6px;">
+          Arguments & Evidence Summary
+        </div>
+        <pre class="code-viewer" id="modalContent"></pre>
+      </div>
     </div>
   </div>
 
   <script>
     let pollInterval = null;
     let cachedLogs = [];
+
+    // Theme Management
+    function initTheme() {
+      const stored = localStorage.getItem('tradepilot_theme');
+      if (stored) {
+        document.documentElement.setAttribute('data-theme', stored);
+      } else {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+      }
+      updateThemeBtnLabel();
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('tradepilot_theme', next);
+      updateThemeBtnLabel();
+    }
+
+    function updateThemeBtnLabel() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        btn.innerText = current === 'dark' ? 'Theme: Light' : 'Theme: Dark';
+      }
+    }
+
+    initTheme();
 
     async function loadAllData() {
       await Promise.all([loadMetricsSummary(), loadLogs()]);
@@ -536,7 +718,7 @@
       try {
         const res = await fetch('/api/v1/metrics/api-usage');
         const data = await res.json();
-        
+
         document.getElementById('totalCalls').innerText = (data.total_tool_invocations || 0).toLocaleString();
         document.getElementById('distinctTools').innerText = `${data.active_tools_tracked || 0} distinct tools tracked`;
         document.getElementById('successRate').innerText = `${data.success_rate_percent || 100}%`;
@@ -555,23 +737,23 @@
       const tbody = document.getElementById('toolsTableBody');
       const toolNames = Object.keys(tools);
       if (toolNames.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color:var(--text-muted);">No tool calls recorded in SQLite yet. Run an export research query to see live telemetry!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--ink-muted);">No tool invocations recorded in SQLite yet. Dispatch an export research query from the desk.</td></tr>';
         return;
       }
 
       tbody.innerHTML = toolNames.map(name => {
         const t = tools[name];
-        const statusBadge = t.failed_calls > 0 ? `<span class="badge badge-error">Degraded (${t.failed_calls} err)</span>` : `<span class="badge badge-success">Healthy</span>`;
-        const cap = t.budget_limit ? `<span class="code-text" style="color:var(--amber);">${t.budget_limit}</span>` : '<span style="color:var(--text-muted);">Unlimited</span>';
+        const statusText = t.failed_calls > 0 ? `<span class="status-text err">DEGRADED (${t.failed_calls})</span>` : `<span class="status-text ok">OK</span>`;
+        const cap = t.budget_limit ? `<span class="mono-code" style="color:var(--warn);">${t.budget_limit}</span>` : '<span style="color:var(--ink-muted);">—</span>';
         return `
           <tr>
-            <td><strong class="code-text" style="color:var(--cyan);">${t.tool_name}</strong></td>
+            <td><strong class="mono-code">${t.tool_name}</strong></td>
             <td><strong>${t.total_calls}</strong></td>
-            <td style="color:var(--emerald);">${t.successful_calls}</td>
-            <td style="color:${t.failed_calls > 0 ? 'var(--rose)' : 'inherit'};">${t.failed_calls}</td>
-            <td><span class="badge badge-tool">${t.avg_latency_ms} ms</span></td>
+            <td style="color: var(--ok);">${t.successful_calls}</td>
+            <td style="color: ${t.failed_calls > 0 ? 'var(--danger)' : 'inherit'};">${t.failed_calls}</td>
+            <td><span class="mono-code">${t.avg_latency_ms} ms</span></td>
             <td>${cap}</td>
-            <td>${statusBadge}</td>
+            <td>${statusText}</td>
           </tr>
         `;
       }).join('');
@@ -591,18 +773,18 @@
 
       tbody.innerHTML = toolNames.map(name => {
         const t = tools[name] || { total_calls: 0, budget_limit: null };
-        const activeCap = t.budget_limit ? `<strong style="color:var(--amber);">${t.budget_limit} calls</strong>` : '<span>Unlimited</span>';
+        const activeCap = t.budget_limit ? `<strong class="mono-code" style="color:var(--warn);">${t.budget_limit} max</strong>` : '<span style="color:var(--ink-muted);">Unlimited</span>';
         return `
           <tr>
-            <td><strong class="code-text">${name}</strong></td>
+            <td><strong class="mono-code">${name}</strong></td>
             <td>${t.total_calls} calls</td>
             <td>${activeCap}</td>
             <td>
-              <input type="number" id="budget-input-${name}" placeholder="Max calls" style="width: 110px; background:#0f172a; border:1px solid var(--border-subtle); color:#fff; padding:6px 10px; border-radius:6px;" value="${t.budget_limit || ''}">
+              <input type="number" id="budget-input-${name}" placeholder="Limit" style="width: 80px; padding: 3px 6px; border: 1px solid var(--rule); border-radius: 2px; background: var(--bg);" value="${t.budget_limit || ''}">
             </td>
             <td>
-              <button class="btn-primary" style="padding:4px 10px; font-size:12px;" onclick="saveBudget('${name}')">Save Cap</button>
-              ${t.budget_limit ? `<button class="btn-danger" style="padding:4px 10px; font-size:12px; margin-left:6px;" onclick="removeBudget('${name}')">Remove</button>` : ''}
+              <button class="btn-control btn-action" style="padding: 2px 8px; font-size: 11px;" onclick="saveBudget('${name}')">Save</button>
+              ${t.budget_limit ? `<button class="btn-control btn-danger-outline" style="padding: 2px 8px; font-size: 11px; margin-left: 4px;" onclick="removeBudget('${name}')">Clear</button>` : ''}
             </td>
           </tr>
         `;
@@ -612,7 +794,7 @@
     async function saveBudget(toolName) {
       const val = parseInt(document.getElementById(`budget-input-${toolName}`).value);
       if (isNaN(val) || val <= 0) {
-        alert("Please enter a valid positive number for max calls.");
+        alert("Please enter a positive integer for the call quota limit.");
         return;
       }
       await fetch('/api/v1/metrics/budget', {
@@ -641,25 +823,25 @@
         const res = await fetch(url);
         const data = await res.json();
         cachedLogs = Array.isArray(data) ? data : (data.logs || []);
-        
+
         const tbody = document.getElementById('logsTableBody');
         if (cachedLogs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color:var(--text-muted);">No persistent logs found in SQLite matching filters.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--ink-muted);">No execution records in SQLite match the filter.</td></tr>';
           return;
         }
 
         tbody.innerHTML = cachedLogs.map((log, idx) => {
-          const statusBadge = log.status === 'success' 
-            ? `<span class="badge badge-success">SUCCESS</span>` 
-            : `<span class="badge badge-error">ERROR</span>`;
+          const statusText = log.status === 'success' 
+            ? `<span class="status-text ok">SUCCESS</span>` 
+            : `<span class="status-text err">ERROR</span>`;
           return `
             <tr>
-              <td style="color:var(--text-muted); font-size:12px;">${log.created_at_iso}</td>
-              <td><span class="code-text" style="color:var(--cyan); font-weight:600;">${log.tool_name}</span></td>
-              <td><span class="badge badge-tool">${log.agent_name || 'System/Direct'}</span></td>
-              <td><strong>${log.duration_ms} ms</strong></td>
-              <td>${statusBadge}</td>
-              <td><button style="padding:4px 8px; font-size:11px;" onclick="inspectLog(${idx})">Inspect</button></td>
+              <td style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted);">${log.created_at_iso}</td>
+              <td><span class="mono-code">${log.tool_name}</span></td>
+              <td><span style="font-size: 11.5px; color: var(--ink-muted);">${log.agent_name || 'system'}</span></td>
+              <td><span class="mono-code">${log.duration_ms} ms</span></td>
+              <td>${statusText}</td>
+              <td><button class="btn-control" style="padding: 1px 6px; font-size: 11px;" onclick="inspectLog(${idx})">Inspect</button></td>
             </tr>
           `;
         }).join('');
@@ -673,10 +855,7 @@
       if (!log) return;
       document.getElementById('modalTitle').innerText = `${log.tool_name}`;
       document.getElementById('modalMeta').innerHTML = `
-        <strong>Call ID:</strong> <span class="code-text">${log.call_id}</span> | 
-        <strong>Agent:</strong> ${log.agent_name || 'System'} | 
-        <strong>Duration:</strong> ${log.duration_ms}ms | 
-        <strong>Status:</strong> ${log.status}
+        CALL ID: ${log.call_id} | AGENT: ${log.agent_name || 'system'} | DURATION: ${log.duration_ms}ms | STATUS: ${log.status}
       `;
       document.getElementById('modalContent').innerText = JSON.stringify({
         arguments: log.arguments,
@@ -691,15 +870,15 @@
     }
 
     async function resetMetrics() {
-      if (confirm("Are you sure you want to clear all persistent SQLite tool metrics and history?")) {
+      if (confirm("Purge all persistent SQLite tool execution records and quota limits?")) {
         await fetch('/api/v1/metrics/reset', { method: 'POST' });
         await loadAllData();
       }
     }
 
     function switchTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel-block').forEach(p => p.classList.remove('active'));
 
       event.target.classList.add('active');
       document.getElementById(`panel-${tab}`).classList.add('active');
@@ -713,7 +892,6 @@
       }
     }
 
-    // Initial load and polling setup
     loadAllData();
     updateInterval();
   </script>

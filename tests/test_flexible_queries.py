@@ -6,8 +6,9 @@ from tradepilot.models.state import TradePilotState
 from tradepilot.subagents.orchestrator import TradePilotOrchestrator
 
 
-def test_dynamic_orchestrator_parallel_grouping():
-    """Verify Orchestrator groups independent research subagents into parallel_group 1."""
+@pytest.mark.asyncio
+async def test_dynamic_orchestrator_specialist_dispatch():
+    """Verify ReAct Supervisor dynamically selects and dispatches independent research specialists."""
     state: TradePilotState = {
         "product_query": "Roasted Coffee",
         "hs_code": "090121",
@@ -27,17 +28,16 @@ def test_dynamic_orchestrator_parallel_grouping():
         "market_rankings": [],
         "final_report_markdown": None
     }
-    plan = TradePilotOrchestrator.create_initial_plan(state)
+    result = await TradePilotOrchestrator.run_react_supervisor(state)
+    findings = result["subagent_findings"]
+    agent_names = [f["agent_name"] for f in findings]
     
-    # Assert parallel group 1 contains trade_research, market_access, buyer_discovery
-    group_1_agents = [p["agent"] for p in plan if p.get("parallel_group") == 1]
-    assert "trade_research" in group_1_agents
-    assert "market_access" in group_1_agents
-    assert "buyer_discovery" in group_1_agents
-    
-    # Verification is in sequential group 2
-    group_2_agents = [p["agent"] for p in plan if p.get("parallel_group") == 2]
-    assert "evidence_verification" in group_2_agents
+    # Assert independent specialists dispatched dynamically
+    assert "TradeResearchAgent" in agent_names
+    assert "MarketAccessAgent" in agent_names
+    assert "BuyerDiscoveryAgent" in agent_names
+    # Verification specialist dispatched
+    assert "EvidenceVerificationAgent" in agent_names
 
 
 @pytest.mark.asyncio

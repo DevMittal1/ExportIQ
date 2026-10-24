@@ -5,20 +5,25 @@ from pydantic import BaseModel, Field
 from .evidence import EvidenceRecord
 
 
+import uuid
+
+
 class SubagentTask(BaseModel):
     """Specification of a bounded task dispatched to a worker subagent."""
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8], description="Unique task identifier")
     agent_name: str = Field(description="Target subagent identifier")
     objective: str = Field(description="Concise operational goal for the subagent")
-    inputs: Dict[str, Any] = Field(description="Task parameters (e.g. hs_code, countries, periods)")
-    max_tool_calls: int = Field(default=10, description="Hard cap on tool executions")
+    inputs: Dict[str, Any] = Field(default_factory=dict, description="Task parameters (e.g. hs_code, countries, periods)")
+    max_tool_calls: int = Field(default=10, description="Hard cap on tool executions for this dispatch")
     timeout_seconds: int = Field(default=60, description="Execution timeout in seconds")
 
 
 class SubagentFinding(BaseModel):
     """Standardized output returned by a worker subagent to the Orchestrator."""
+    task_id: str = Field(default="", description="Identifier of the dispatched task")
     agent_name: str = Field(description="Name of the producing subagent")
     objective: str = Field(description="Original assigned objective")
-    findings: List[str] = Field(description="Concise factual narrative conclusions")
+    findings: List[str] = Field(default_factory=list, description="Concise factual narrative conclusions")
     evidence: List[EvidenceRecord] = Field(default_factory=list, description="Source-linked evidence records")
     calculations: Dict[str, Any] = Field(default_factory=dict, description="Deterministic formulas, inputs and results")
     limitations: List[str] = Field(default_factory=list, description="Known data gaps or caveats")
@@ -35,7 +40,8 @@ AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
             "trade.get_export_flows",
             "economics.get_country_indicators",
             "analytics.calculate_demand_growth",
-            "analytics.calculate_supplier_concentration"
+            "analytics.calculate_supplier_concentration",
+            "skills.read_skill"
         ],
         "max_tool_calls": 10,
         "timeout_seconds": 45
@@ -48,7 +54,8 @@ AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
             "tariffs.get_applied_rate",
             "tariffs.check_preferential_rate",
             "tariffs.check_origin_rules",
-            "compliance.search_product_requirements"
+            "compliance.search_product_requirements",
+            "skills.read_skill"
         ],
         "max_tool_calls": 10,
         "timeout_seconds": 60
@@ -59,7 +66,8 @@ AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
         "skills": ["buyer-qualification"],
         "tools": [
             "buyers.search_importers",
-            "buyers.verify_company"
+            "buyers.verify_company",
+            "skills.read_skill"
         ],
         "max_tool_calls": 12,
         "timeout_seconds": 60
@@ -70,7 +78,8 @@ AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
         "skills": ["trade-evidence-verification"],
         "tools": [
             "evidence.verify_claim",
-            "evidence.find_conflicts"
+            "evidence.find_conflicts",
+            "skills.read_skill"
         ],
         "max_tool_calls": 8,
         "timeout_seconds": 30

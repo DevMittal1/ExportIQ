@@ -39,5 +39,9 @@ async def dispatch_subagent(
     if not handler:
         raise NotImplementedError(f"No execution handler registered for '{agent_key}'")
         
+    import uuid
     logger.info(f"Dispatching [{spec['name']}]: {objective}")
-    return await handler(objective=objective, inputs=inputs, constraints=constraints)
+    finding = await handler(objective=objective, inputs=inputs, constraints=constraints)
+    if isinstance(finding, SubagentFinding) and not finding.task_id:
+        finding.task_id = str(uuid.uuid4())[:8]
+    return finding

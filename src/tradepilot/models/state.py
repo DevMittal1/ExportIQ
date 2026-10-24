@@ -33,6 +33,7 @@ class TradePilotState(TypedDict):
     subagent_findings: Annotated[List[Dict[str, Any]], operator.add]
     
     # Analytical Outcomes
+    direct_answer: Optional[str]
     shortlisted_destinations: List[str]
     market_rankings: List[Dict[str, Any]]
     final_report_markdown: Optional[str]

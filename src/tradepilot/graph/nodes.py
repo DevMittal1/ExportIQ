@@ -27,26 +27,36 @@ async def validate_request_node(state: TradePilotState) -> Dict[str, Any]:
 
 
 async def orchestrator_planning_node(state: TradePilotState) -> Dict[str, Any]:
-    """Formulate dynamic multi-stage execution plan and load initial skills."""
-    plan = TradePilotOrchestrator.create_initial_plan(state)
+    """Execute TradePilot ReAct supervisor for dynamic specialist dispatch."""
+    return await react_supervisor_node(state)
+
+
+async def react_supervisor_node(state: TradePilotState) -> Dict[str, Any]:
+    """Execute TradePilot ReAct supervisor for dynamic observation-driven specialist dispatch."""
+    result = await TradePilotOrchestrator.run_react_supervisor(state)
+    destinations = list(state.get("shortlisted_destinations") or state.get("candidate_destinations", []))
+    query_str = (state.get("query") or "").lower()
+    product = state.get("product_query")
+    is_advisory = (
+        state.get("query_intent") in ["trade_advisory", "general_advisory"]
+        or not product
+        or any(w in query_str for w in ["incoterm", "fob", "cif", "letter of credit", "financing", "advisory", "procedure", "how to", "what is", "help"])
+    )
     
-    # Propagate planned destinations if auto-discovered or defaulted
-    destinations = state.get("candidate_destinations", [])
-    if not destinations:
-        for p in plan:
-            if "destinations" in p.get("inputs", {}):
-                destinations = p["inputs"]["destinations"]
-                break
-                
-    updates: Dict[str, Any] = {
-        "current_stage": "planned",
-        "execution_plan": plan,
-        "active_skills": ["trade-data-analysis", "tariff-market-access", "buyer-qualification", "market-scoring"]
-    }
-    if destinations:
-        updates["candidate_destinations"] = destinations
-        updates["shortlisted_destinations"] = destinations
+    if not is_advisory and product and not destinations and result.get("subagent_findings"):
+        for f in result["subagent_findings"]:
+            for d in ["DEU", "USA"]:
+                if d in str(f.get("findings", [])):
+                    destinations.append(d)
+        destinations = list(dict.fromkeys(destinations))
         
+    updates = {
+        **result,
+        "current_stage": "supervisor_completed"
+    }
+    if destinations and not is_advisory:
+        updates["shortlisted_destinations"] = destinations
+        updates["candidate_destinations"] = destinations
     return updates
 
 
@@ -186,10 +196,17 @@ async def evidence_verification_node(state: TradePilotState) -> Dict[str, Any]:
 
 async def deterministic_scoring_node(state: TradePilotState) -> Dict[str, Any]:
     """Calculate multi-criteria market ranking deterministically."""
-    destinations = state.get("shortlisted_destinations", state.get("candidate_destinations", []))
+    destinations = list(state.get("shortlisted_destinations") or state.get("candidate_destinations", []))
+    query_str = (state.get("query") or "").lower()
+    product = state.get("product_query")
+    is_advisory = (
+        state.get("query_intent") in ["trade_advisory", "general_advisory"]
+        or not product
+        or any(w in query_str for w in ["incoterm", "fob", "cif", "letter of credit", "financing", "advisory", "procedure", "how to", "what is", "help"])
+    )
     
     # If no candidate destinations or pure advisory intent, bypass market ranking
-    if not destinations or state.get("query_intent") in ["trade_advisory", "general_advisory"]:
+    if not destinations or is_advisory:
         return {
             "current_stage": "scored",
             "market_rankings": []
@@ -230,14 +247,23 @@ async def generate_report_node(state: TradePilotState) -> Dict[str, Any]:
     findings = state.get("subagent_findings", [])
     evidence_count = len(state.get("evidence_pool", []))
     intent = state.get("query_intent") or "comprehensive_feasibility"
+    direct_ans = state.get("direct_answer")
+    
+    query_str = (state.get("query") or "").lower()
+    is_advisory = (
+        state.get("query_intent") in ["trade_advisory", "general_advisory"]
+        or not state.get("product_query")
+        or any(w in query_str for w in ["incoterm", "fob", "cif", "letter of credit", "financing", "advisory", "procedure", "how to", "what is", "help"])
+    )
     
     top_dest = rankings[0]["country_name"] if rankings else "Primary Target"
     top_score = rankings[0]["suitability_score"] if rankings else 85.0
     
-    if rankings:
+    if rankings and not is_advisory:
+        hs_label = state.get("hs_code") or "Determined by Product Scope"
         lines = [
             f"# Export Intelligence & Market Feasibility Report: {product}",
-            f"**Origin Country:** {origin} | **Reference HS Code:** {state.get('hs_code', '090121')}",
+            f"**Origin Country:** {origin} | **Reference HS Code:** {hs_label}",
             "",
             "## Executive Summary",
             f"Based on multi-criteria empirical trade analysis, **{top_dest}** emerges as the top-ranked export destination with a suitability score of **{top_score}/100**.",
@@ -279,15 +305,20 @@ async def generate_report_node(state: TradePilotState) -> Dict[str, Any]:
             f"**Origin:** {origin} | **Intent:** {intent.replace('_', ' ').title()}",
             "",
             "## Executive Summary & Guidance",
-            f"Synthesized intelligence for inquiry: *\"{state.get('query') or product}\"*.",
-            "",
-            "## Subagent Findings & Advisory Details"
         ]
-        for f in findings:
-            lines.append(f"### {f['agent_name']}")
-            for f_line in f["findings"]:
-                lines.append(f"- {f_line}")
-            lines.append("")
+        if direct_ans:
+            lines.append(direct_ans)
+        else:
+            lines.append(f"Synthesized intelligence for inquiry: *\"{state.get('query') or product}\"*.")
+        lines.append("")
+        
+        if findings:
+            lines.append("## Subagent Findings & Advisory Details")
+            for f in findings:
+                lines.append(f"### {f['agent_name']}")
+                for f_line in f["findings"]:
+                    lines.append(f"- {f_line}")
+                lines.append("")
             
         if evidence_count > 0:
             lines.extend([

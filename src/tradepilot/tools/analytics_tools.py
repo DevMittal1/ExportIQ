@@ -43,20 +43,31 @@ def calculate_demand_growth(
             "data_quality_flags": ["Insufficient observations to compute CAGR"]
         }
         
-    sorted_obs = sorted(observations, key=lambda x: x["year"])
+    def _extract_year(obs: Dict[str, Any]) -> int:
+        return int(obs.get("year") or obs.get("period") or 0)
+
+    def _extract_val(obs: Dict[str, Any]) -> float:
+        val = obs.get("value")
+        if val is None:
+            val = obs.get("trade_value_usd", 0.0)
+        return float(val)
+
+    sorted_obs = sorted(observations, key=_extract_year)
     start_obs = sorted_obs[0]
     end_obs = sorted_obs[-1]
     
-    start_val = float(start_obs["value"])
-    end_val = float(end_obs["value"])
-    n_years = end_obs["year"] - start_obs["year"]
+    start_year = _extract_year(start_obs)
+    end_year = _extract_year(end_obs)
+    start_val = _extract_val(start_obs)
+    end_val = _extract_val(end_obs)
+    n_years = end_year - start_year
     
     if start_val <= 0 or n_years <= 0:
         return {
             "cagr_percent": 0.0,
             "absolute_growth": end_val - start_val,
-            "start_year": start_obs["year"],
-            "end_year": end_obs["year"],
+            "start_year": start_year,
+            "end_year": end_year,
             "data_quality_flags": ["Start value zero or zero time elapsed"]
         }
         
@@ -66,8 +77,8 @@ def calculate_demand_growth(
     return {
         "cagr_percent": round(float(cagr), 2),
         "absolute_growth": round(abs_growth, 2),
-        "start_year": start_obs["year"],
-        "end_year": end_obs["year"],
+        "start_year": start_year,
+        "end_year": end_year,
         "start_value": start_val,
         "end_value": end_val,
         "data_quality_flags": []

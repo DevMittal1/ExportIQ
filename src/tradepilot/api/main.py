@@ -5,15 +5,19 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import uuid
 
-from ..graph.workflow import create_tradepilot_graph
+from ..graph.workflow import create_tradepilot_graph, create_react_supervisor_graph
 from ..models.state import TradePilotState
 from ..tools.registry import TOOL_REGISTRY
 from ..middleware.authorization import SkillAccessMiddleware
 from ..tools.meta_tools import read_skill
+from ..subagents.orchestrator import supervisor, build_research_request, extract_findings, merge_evidence
+from ..graph.nodes import deterministic_scoring_node, generate_report_node, validate_request_node
 
 from pathlib import Path
 from fastapi.responses import HTMLResponse
 from ..middleware.tool_hooks import USAGE_TRACKER
+
+from ..integrations import setup_copilotkit_agui
 
 app = FastAPI(
     title="TradePilot AI API",
@@ -24,7 +28,47 @@ app = FastAPI(
 # Global graph instance
 _graph = create_tradepilot_graph()
 
+# Mount CopilotKit & AG-UI protocol remote endpoints
+setup_copilotkit_agui(app, graph=_graph, prefix="/copilotkit")
+setup_copilotkit_agui(app, graph=_graph, prefix="/ag-ui")
+
+_INDEX_HTML_PATH = Path(__file__).parent / "index.html"
 _DASHBOARD_HTML_PATH = Path(__file__).parent / "dashboard.html"
+_TOKENS_CSS_PATH = Path(__file__).parent / "tokens.css"
+
+
+_FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#1F4E46"/>
+  <path d="M7 10h18M16 10v14M11 24h10" stroke="#F4F1EA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="16" cy="17" r="2.5" fill="#D88E35"/>
+</svg>"""
+
+
+@app.get("/favicon.ico")
+async def serve_favicon():
+    """Serve TradePilot customs ledger SVG favicon."""
+    from fastapi.responses import Response
+    return Response(content=_FAVICON_SVG, media_type="image/svg+xml")
+
+
+@app.get("/tokens.css")
+@app.get("/static/tokens.css")
+async def serve_tokens():
+    """Serve centralized Trade Desk CSS design tokens."""
+    if _TOKENS_CSS_PATH.exists():
+        from fastapi.responses import Response
+        return Response(content=_TOKENS_CSS_PATH.read_text(encoding="utf-8"), media_type="text/css")
+    return Response(content="/* tokens not found */", status_code=404, media_type="text/css")
+
+
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/app", response_class=HTMLResponse)
+async def serve_frontend():
+    """Serve the interactive TradePilot AI Copilot frontend application."""
+    if _INDEX_HTML_PATH.exists():
+        return HTMLResponse(content=_INDEX_HTML_PATH.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>TradePilot Frontend not found</h1>", status_code=404)
 
 
 class BudgetUpdateRequest(BaseModel):
@@ -94,6 +138,7 @@ class ResearchRequest(BaseModel):
 class ResearchResponse(BaseModel):
     run_id: str
     status: str
+    direct_answer: Optional[str] = None
     report_markdown: Optional[str] = None
     rankings: List[Dict[str, Any]] = []
     evidence_count: int = 0
@@ -151,6 +196,7 @@ async def run_export_research(req: ResearchRequest):
         "user_interrupt_prompt": None,
         "evidence_pool": [],
         "subagent_findings": [],
+        "direct_answer": None,
         "shortlisted_destinations": [],
         "market_rankings": [],
         "final_report_markdown": None
@@ -169,9 +215,115 @@ async def run_export_research(req: ResearchRequest):
         return ResearchResponse(
             run_id=run_id,
             status="completed",
+            direct_answer=final_state.get("direct_answer"),
             report_markdown=final_state.get("final_report_markdown"),
             rankings=final_state.get("market_rankings", []),
             evidence_count=len(final_state.get("evidence_pool", []))
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
+
+
+async def execute_react_supervisor_research(req: ResearchRequest) -> Dict[str, Any]:
+    """Execute dynamic ReAct supervisor loop with deterministic scoring and report finalization."""
+    run_id = str(uuid.uuid4())
+    effective_query = req.query or req.product_query or ""
+    
+    state: TradePilotState = {
+        "query": effective_query,
+        "product_query": req.product_query,
+        "hs_code": req.hs_code,
+        "origin_country": req.origin_country,
+        "candidate_destinations": req.candidate_destinations or [],
+        "reference_years": req.reference_years or [2021, 2022, 2023],
+        "query_intent": None,
+        "active_skills": [],
+        "execution_plan": [],
+        "current_stage": "initialized",
+        "follow_up_count": 0,
+        "critical_gaps": [],
+        "user_interrupt_needed": False,
+        "user_interrupt_prompt": None,
+        "evidence_pool": [],
+        "subagent_findings": [],
+        "shortlisted_destinations": req.candidate_destinations or [],
+        "market_rankings": [],
+        "final_report_markdown": None
+    }
+    
+    # 1. Pre-validation
+    val_res = await validate_request_node(state)
+    if val_res.get("user_interrupt_needed"):
+        return {
+            "run_id": run_id,
+            "status": "interrupted",
+            "errors": val_res.get("critical_gaps", ["Input validation error"])
+        }
+        
+    # 2. Dynamic model -> tool -> observation loop
+    result = await supervisor.ainvoke(
+        {
+            "messages": [{
+                "role": "user",
+                "content": build_research_request(state)
+            }]
+        },
+        config={
+            "recursion_limit": 50,
+            "configurable": {"thread_id": run_id}
+        }
+    )
+    findings = extract_findings(result)
+    state["subagent_findings"] = findings
+    state["evidence_pool"] = merge_evidence(findings)
+    
+    # Extract direct supervisor synthesized response
+    direct_answer = None
+    messages = result.get("messages", []) if isinstance(result, dict) else []
+    if messages:
+        last_msg = messages[-1]
+        content = getattr(last_msg, "content", None) or (last_msg.get("content") if isinstance(last_msg, dict) else None)
+        if isinstance(content, list):
+            content = "\n".join(
+                b.get("text", "") if isinstance(b, dict) else str(b)
+                for b in content
+                if not (isinstance(b, dict) and b.get("type") != "text")
+            )
+        if content and isinstance(content, str) and content.strip():
+            direct_answer = content.strip()
+    state["direct_answer"] = direct_answer
+        
+    # 3. Deterministic Finalization: Scoring and Report Generation
+    score_update = await deterministic_scoring_node(state)
+    state["market_rankings"] = score_update.get("market_rankings", [])
+    
+    report_update = await generate_report_node(state)
+    state["final_report_markdown"] = report_update.get("final_report_markdown")
+    
+    return {
+        "run_id": run_id,
+        "status": "completed",
+        "direct_answer": state.get("direct_answer"),
+        "report_markdown": state["final_report_markdown"],
+        "rankings": state["market_rankings"],
+        "evidence_count": len(state["evidence_pool"]),
+        "subagent_findings_count": len(state["subagent_findings"])
+    }
+
+
+@app.post("/api/v1/research/react", response_model=ResearchResponse)
+async def run_react_supervisor_endpoint(req: ResearchRequest):
+    """Run an end-to-end export research study driven directly by the ReAct supervisor."""
+    try:
+        res = await execute_react_supervisor_research(req)
+        return ResearchResponse(
+            run_id=res["run_id"],
+            status=res["status"],
+            direct_answer=res.get("direct_answer"),
+            report_markdown=res.get("report_markdown"),
+            rankings=res.get("rankings", []),
+            evidence_count=res.get("evidence_count", 0),
+            errors=res.get("errors", [])
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"ReAct supervisor error: {str(exc)}")

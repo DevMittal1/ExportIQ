@@ -1,0 +1,121 @@
+/* ==========================================================================
+   TradePilot AI — Design System Tokens
+   Concept: "Trade Desk / Customs Ledger"
+   Editorial, dense, document-like. 1px hairlines, warm paper, deep ink.
+   ========================================================================== */
+
+:root {
+  /* Warm Paper / Ledger Light Theme (Default) */
+  --bg: #F4F1EA;
+  --surface: #FBFAF6;
+  --surface-raised: #FFFFFF;
+  --ink: #1B1F23;
+  --ink-muted: #5C6169;
+  --ink-faint: #8C929A;
+  --rule: #D9D4C7;
+  --rule-subtle: #E8E4DA;
+
+  /* Accent & State Colors (Muted, credible) */
+  --accent: #1F4E46;           /* Deep ink-green */
+  --accent-hover: #163832;
+  --accent-surface: rgba(31, 78, 70, 0.08);
+  --warn: #9A5B13;             /* Warm amber/ochre */
+  --warn-surface: rgba(154, 91, 19, 0.08);
+  --danger: #8C2F2B;           /* Deep brick red */
+  --danger-surface: rgba(140, 47, 43, 0.08);
+  --ok: #2F6B3F;               /* Forest green */
+  --ok-surface: rgba(47, 107, 63, 0.08);
+
+  /* Typography */
+  --font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace;
+
+  /* Layout & Geometry */
+  --header-height: 48px;
+  --radius-sm: 3px;
+  --radius: 6px;
+  --border: 1px solid var(--rule);
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset: 2px;
+  --doc-max-width: 980px;
+
+  /* Transitions */
+  --transition-fast: 140ms ease-out;
+}
+
+/* ==========================================================================
+   Custom Scrollbar (Subtle, unobtrusive)
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-muted);
+}
+
+
+/* Dark Theme Variant */
+[data-theme="dark"] {
+  --bg: #14171A;
+  --surface: #1B1F23;
+  --surface-raised: #22272E;
+  --ink: #E6E3DB;
+  --ink-muted: #8E939B;
+  --ink-faint: #5C626C;
+  --rule: #2E343B;
+  --rule-subtle: #24292F;
+
+  --accent: #5E9C8F;           /* Lightened sage/teal for dark contrast */
+  --accent-hover: #75B0A4;
+  --accent-surface: rgba(94, 156, 143, 0.12);
+  --warn: #D88E35;
+  --warn-surface: rgba(216, 142, 53, 0.12);
+  --danger: #D9534F;
+  --danger-surface: rgba(217, 83, 79, 0.12);
+  --ok: #4E9A63;
+  --ok-surface: rgba(78, 154, 99, 0.12);
+
+  --border: 1px solid var(--rule);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171A;
+    --surface: #1B1F23;
+    --surface-raised: #22272E;
+    --ink: #E6E3DB;
+    --ink-muted: #8E939B;
+    --ink-faint: #5C626C;
+    --rule: #2E343B;
+    --rule-subtle: #24292F;
+
+    --accent: #5E9C8F;
+    --accent-hover: #75B0A4;
+    --accent-surface: rgba(94, 156, 143, 0.12);
+    --warn: #D88E35;
+    --warn-surface: rgba(216, 142, 53, 0.12);
+    --danger: #D9534F;
+    --danger-surface: rgba(217, 83, 79, 0.12);
+    --ok: #4E9A63;
+    --ok-surface: rgba(78, 154, 99, 0.12);
+
+    --border: 1px solid var(--rule);
+  }
+}
