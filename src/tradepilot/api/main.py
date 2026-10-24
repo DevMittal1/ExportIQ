@@ -127,6 +127,7 @@ async def reset_metrics():
 
 
 class ResearchRequest(BaseModel):
+    thread_id: Optional[str] = Field(default=None, description="Conversational thread/session ID for multi-turn state continuity")
     query: Optional[str] = Field(default=None, description="Natural language question, trade prompt, or research instruction")
     product_query: Optional[str] = Field(default=None, description="Product name or category (optional if in query)")
     hs_code: Optional[str] = Field(default=None, description="HS 6-digit classification code")
@@ -137,11 +138,14 @@ class ResearchRequest(BaseModel):
 
 class ResearchResponse(BaseModel):
     run_id: str
+    thread_id: Optional[str] = None
     status: str
     direct_answer: Optional[str] = None
     report_markdown: Optional[str] = None
     rankings: List[Dict[str, Any]] = []
     evidence_count: int = 0
+    subagents_dispatched: List[str] = []
+    query_intent: Optional[str] = None
     errors: List[str] = []
 
 
@@ -174,33 +178,52 @@ async def list_skills():
 async def run_export_research(req: ResearchRequest):
     """Run an end-to-end export study, market discovery, or trade advisory inquiry."""
     run_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": run_id}}
+    thread_id = req.thread_id or run_id
+    config = {"configurable": {"thread_id": thread_id}}
     
     # If only query is provided, use it; if product_query provided, maintain backward compatibility
     effective_query = req.query or req.product_query or ""
     
-    initial_state: TradePilotState = {
-        "query": effective_query,
-        "product_query": req.product_query,
-        "hs_code": req.hs_code,
-        "origin_country": req.origin_country,
-        "candidate_destinations": req.candidate_destinations or [],
-        "reference_years": req.reference_years,
-        "query_intent": None,
-        "active_skills": [],
-        "execution_plan": [],
-        "current_stage": "initialized",
-        "follow_up_count": 0,
-        "critical_gaps": [],
-        "user_interrupt_needed": False,
-        "user_interrupt_prompt": None,
-        "evidence_pool": [],
-        "subagent_findings": [],
-        "direct_answer": None,
-        "shortlisted_destinations": [],
-        "market_rankings": [],
-        "final_report_markdown": None
-    }
+    # Check if previous state exists for this thread in the LangGraph checkpointer
+    existing_state = await _graph.aget_state(config)
+    if existing_state and existing_state.values:
+        initial_state: TradePilotState = {
+            "query": effective_query,
+            "current_stage": "initialized",
+            "user_interrupt_needed": False,
+            "user_interrupt_prompt": None,
+        }
+        if req.product_query:
+            initial_state["product_query"] = req.product_query
+        if req.origin_country:
+            initial_state["origin_country"] = req.origin_country
+        if req.candidate_destinations:
+            initial_state["candidate_destinations"] = req.candidate_destinations
+        if req.hs_code:
+            initial_state["hs_code"] = req.hs_code
+    else:
+        initial_state: TradePilotState = {
+            "query": effective_query,
+            "product_query": req.product_query,
+            "hs_code": req.hs_code,
+            "origin_country": req.origin_country,
+            "candidate_destinations": req.candidate_destinations or [],
+            "reference_years": req.reference_years,
+            "query_intent": None,
+            "active_skills": [],
+            "execution_plan": [],
+            "current_stage": "initialized",
+            "follow_up_count": 0,
+            "critical_gaps": [],
+            "user_interrupt_needed": False,
+            "user_interrupt_prompt": None,
+            "evidence_pool": [],
+            "subagent_findings": [],
+            "direct_answer": None,
+            "shortlisted_destinations": [],
+            "market_rankings": [],
+            "final_report_markdown": None
+        }
     
     try:
         final_state = await _graph.ainvoke(initial_state, config=config)
@@ -208,17 +231,25 @@ async def run_export_research(req: ResearchRequest):
         if final_state.get("user_interrupt_needed"):
             return ResearchResponse(
                 run_id=run_id,
+                thread_id=thread_id,
                 status="interrupted",
                 errors=final_state.get("critical_gaps", ["User clarification required."])
             )
             
+        findings = final_state.get("subagent_findings", [])
+        dispatched = list(dict.fromkeys(f.get("agent_name") for f in findings if f.get("agent_name")))
+        intent = final_state.get("query_intent") or ("comprehensive_feasibility" if final_state.get("market_rankings") else "trade_advisory")
+
         return ResearchResponse(
             run_id=run_id,
+            thread_id=thread_id,
             status="completed",
             direct_answer=final_state.get("direct_answer"),
             report_markdown=final_state.get("final_report_markdown"),
             rankings=final_state.get("market_rankings", []),
-            evidence_count=len(final_state.get("evidence_pool", []))
+            evidence_count=len(final_state.get("evidence_pool", [])),
+            subagents_dispatched=dispatched,
+            query_intent=intent
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
@@ -227,6 +258,7 @@ async def run_export_research(req: ResearchRequest):
 async def execute_react_supervisor_research(req: ResearchRequest) -> Dict[str, Any]:
     """Execute dynamic ReAct supervisor loop with deterministic scoring and report finalization."""
     run_id = str(uuid.uuid4())
+    thread_id = req.thread_id or run_id
     effective_query = req.query or req.product_query or ""
     
     state: TradePilotState = {
@@ -246,6 +278,7 @@ async def execute_react_supervisor_research(req: ResearchRequest) -> Dict[str, A
         "user_interrupt_prompt": None,
         "evidence_pool": [],
         "subagent_findings": [],
+        "direct_answer": None,
         "shortlisted_destinations": req.candidate_destinations or [],
         "market_rankings": [],
         "final_report_markdown": None
@@ -256,6 +289,7 @@ async def execute_react_supervisor_research(req: ResearchRequest) -> Dict[str, A
     if val_res.get("user_interrupt_needed"):
         return {
             "run_id": run_id,
+            "thread_id": thread_id,
             "status": "interrupted",
             "errors": val_res.get("critical_gaps", ["Input validation error"])
         }
@@ -270,7 +304,7 @@ async def execute_react_supervisor_research(req: ResearchRequest) -> Dict[str, A
         },
         config={
             "recursion_limit": 50,
-            "configurable": {"thread_id": run_id}
+            "configurable": {"thread_id": thread_id}
         }
     )
     findings = extract_findings(result)
@@ -300,13 +334,20 @@ async def execute_react_supervisor_research(req: ResearchRequest) -> Dict[str, A
     report_update = await generate_report_node(state)
     state["final_report_markdown"] = report_update.get("final_report_markdown")
     
+    findings = state["subagent_findings"]
+    dispatched = list(dict.fromkeys(f.get("agent_name") for f in findings if f.get("agent_name")))
+    intent = state.get("query_intent") or ("comprehensive_feasibility" if state.get("market_rankings") else "trade_advisory")
+
     return {
         "run_id": run_id,
+        "thread_id": thread_id,
         "status": "completed",
         "direct_answer": state.get("direct_answer"),
         "report_markdown": state["final_report_markdown"],
         "rankings": state["market_rankings"],
         "evidence_count": len(state["evidence_pool"]),
+        "subagents_dispatched": dispatched,
+        "query_intent": intent,
         "subagent_findings_count": len(state["subagent_findings"])
     }
 
@@ -318,11 +359,14 @@ async def run_react_supervisor_endpoint(req: ResearchRequest):
         res = await execute_react_supervisor_research(req)
         return ResearchResponse(
             run_id=res["run_id"],
+            thread_id=res.get("thread_id"),
             status=res["status"],
             direct_answer=res.get("direct_answer"),
             report_markdown=res.get("report_markdown"),
             rankings=res.get("rankings", []),
             evidence_count=res.get("evidence_count", 0),
+            subagents_dispatched=res.get("subagents_dispatched", []),
+            query_intent=res.get("query_intent"),
             errors=res.get("errors", [])
         )
     except Exception as exc:
