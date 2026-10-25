@@ -27,6 +27,12 @@ class TradePilotState(TypedDict):
     critical_gaps: List[str]
     user_interrupt_needed: bool
     user_interrupt_prompt: Optional[str]
+    enable_hitl: Optional[bool]
+    scoring_weights: Optional[Dict[str, float]]
+    human_clarification_completed: Optional[bool]
+    human_plan_approved: Optional[bool]
+    human_review_completed: Optional[bool]
+    market_metrics_cache: Optional[List[Dict[str, Any]]]
     
     # Aggregated Structured Findings (Appended across graph steps via operator.add)
     evidence_pool: Annotated[List[Dict[str, Any]], operator.add]
@@ -37,3 +43,4 @@ class TradePilotState(TypedDict):
     shortlisted_destinations: List[str]
     market_rankings: List[Dict[str, Any]]
     final_report_markdown: Optional[str]
+    ui_actions: Optional[List[Dict[str, Any]]]

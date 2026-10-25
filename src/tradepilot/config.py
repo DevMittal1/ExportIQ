@@ -44,7 +44,6 @@ class Settings(BaseSettings):
     
     # State Persistence
     DATABASE_URL: Optional[str] = Field(default=None)
-    REDIS_URL: Optional[str] = Field(default=None)
     
     # LangGraph & Execution Controls
     MAX_WORKFLOW_STEPS: int = Field(default=30)

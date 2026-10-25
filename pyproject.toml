@@ -17,6 +17,8 @@ dependencies = [
     "copilotkit>=0.1.96",
     "langchain-google-genai>=4.4.2",
     "deepagents>=0.7.32",
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary,pool]>=3.2.0",
 ]
 
 [project.optional-dependencies]

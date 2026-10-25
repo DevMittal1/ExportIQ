@@ -4,11 +4,11 @@ from typing import Literal
 from ..models.state import TradePilotState
 
 
-def route_after_validation(state: TradePilotState) -> Literal["orchestrator_planning", "__end__"]:
+def route_after_validation(state: TradePilotState) -> Literal["human_clarification", "__end__"]:
     """Route after input validation."""
     if state.get("user_interrupt_needed") or state.get("current_stage") == "input_error":
         return "__end__"
-    return "orchestrator_planning"
+    return "human_clarification"
 
 
 def route_after_verification(state: TradePilotState) -> Literal["targeted_follow_up", "deterministic_scoring"]:

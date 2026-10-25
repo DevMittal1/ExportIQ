@@ -17,6 +17,9 @@
   
   <!-- Markdown parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  
+  <!-- Chart.js for CopilotKit Generative Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
     /* ==========================================================================
@@ -1158,6 +1161,589 @@
       line-height: 1.5;
     }
 
+    /* Human-in-the-Loop (HITL) Styles */
+    .hitl-toggle-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid var(--rule);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: var(--ink-muted);
+    }
+    .hitl-toggle-pill.active {
+      border-color: var(--accent);
+      color: var(--ink);
+      background: var(--accent-surface);
+    }
+    .hitl-toggle-pill .hitl-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-muted);
+    }
+    .hitl-toggle-pill.active .hitl-dot {
+      background: var(--ok);
+      box-shadow: 0 0 6px var(--ok);
+    }
+
+    .hitl-card {
+      margin-top: 14px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--warn);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .hitl-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 8px;
+    }
+    .hitl-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--warn-surface);
+      color: var(--warn);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid rgba(216,142,53,0.3);
+    }
+    .hitl-title {
+      font-family: var(--font-serif);
+      font-size: 15px;
+      color: var(--ink);
+      margin: 6px 0 2px 0;
+    }
+    .hitl-desc {
+      font-size: 12px;
+      color: var(--ink-muted);
+      line-height: 1.45;
+    }
+    .hitl-rankings-preview {
+      margin: 12px 0;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hitl-rank-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .hitl-weights-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+      margin: 14px 0 8px 0;
+    }
+    @media (max-width: 600px) {
+      .hitl-weights-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .hitl-weight-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .hitl-weight-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink);
+    }
+    .hitl-slider {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 4px;
+    }
+    .hitl-weight-sum {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      text-align: right;
+      margin-bottom: 6px;
+    }
+    .hitl-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--rule);
+    }
+    .hitl-btn-approve {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .hitl-btn-approve:hover {
+      background: var(--accent-surface);
+    }
+    .hitl-btn-apply {
+      flex: 1;
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .hitl-btn-apply:hover {
+      opacity: 0.92;
+    }
+    .hitl-pills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0;
+    }
+    .hitl-pill-btn {
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      cursor: pointer;
+      color: var(--ink);
+      transition: all 0.15s ease;
+    }
+    .hitl-pill-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-surface);
+    }
+    .hitl-pill-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .hitl-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .hitl-text-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      color: var(--ink);
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-radius: var(--radius-sm);
+    }
+    .hitl-text-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .hitl-market-checkboxes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0;
+      background: var(--bg);
+      padding: 10px 12px;
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+    }
+    .hitl-market-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .hitl-market-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* ==========================================================================
+       AG-UI Protocol & CopilotKit v2 ApprovalCard Styles
+       ========================================================================== */
+    .approval-card {
+      margin-top: 14px;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+      transition: all 0.2s ease;
+    }
+    .approval-card.status-cancelled {
+      opacity: 0.7;
+      border-color: var(--rule);
+      pointer-events: none;
+    }
+    .agui-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .agui-protocol-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      background: var(--accent-surface);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(31, 78, 70, 0.25);
+    }
+    .agui-agent-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+    .agui-action-box {
+      margin: 12px 0;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .agui-action-label {
+      background: var(--rule-subtle);
+      padding: 5px 10px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      border-bottom: 1px solid var(--rule);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .agui-json {
+      margin: 0;
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--ink);
+      overflow-x: auto;
+      max-height: 200px;
+    }
+    .agui-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .agui-option-card {
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+    .agui-option-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-surface);
+    }
+    .agui-option-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-surface);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .agui-option-title {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .agui-option-rationale {
+      font-size: 11px;
+      color: var(--ink-muted);
+      line-height: 1.35;
+    }
+    .agui-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--rule);
+    }
+    .agui-btn-approve {
+      flex: 2;
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+      padding: 8px 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .agui-btn-approve:hover {
+      opacity: 0.92;
+    }
+    .agui-btn-reject {
+      flex: 1;
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .agui-btn-reject:hover {
+      background: var(--danger-surface);
+    }
+    .agui-btn-cancel {
+      background: transparent;
+      color: var(--ink-muted);
+      border: 1px solid var(--rule);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .agui-btn-cancel:hover {
+      background: var(--rule-subtle);
+      color: var(--ink);
+    }
+
+    /* ==========================================================================
+       CopilotKit & AG-UI Frontend Tools Styling
+       ========================================================================== */
+    .dossier-tool-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      margin-left: 12px;
+    }
+    .dossier-tab {
+      background: transparent;
+      border: none;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-muted);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .dossier-tab:hover {
+      color: var(--ink);
+      background: rgba(0, 0, 0, 0.03);
+    }
+    .dossier-tab.active {
+      background: var(--surface-raised);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .dossier-tool-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--accent-surface);
+      border: 1px solid rgba(31, 78, 70, 0.2);
+      color: var(--accent);
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-left: 4px;
+    }
+    .dossier-tool-btn:hover {
+      background: var(--accent);
+      color: #FFFFFF;
+    }
+
+    /* Market Chart Container & Controls */
+    .market-chart-section {
+      background: var(--surface-raised);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      animation: fadeIn 0.25s ease-out;
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .chart-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      background: var(--accent-surface);
+      padding: 2px 7px;
+      border-radius: 2px;
+      margin-bottom: 4px;
+    }
+    .chart-title {
+      font-family: var(--font-serif);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ink);
+      margin: 0;
+    }
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+    }
+    .chart-mode-pill {
+      background: transparent;
+      border: none;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-muted);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chart-mode-pill:hover {
+      color: var(--ink);
+    }
+    .chart-mode-pill.active {
+      background: var(--surface-raised);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .chart-canvas-container {
+      position: relative;
+      width: 100%;
+      height: 320px;
+      max-height: 360px;
+      margin: 0 auto;
+    }
+    .chart-caption {
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      text-align: center;
+      border-top: 1px dashed var(--rule-subtle);
+      padding-top: 8px;
+    }
+
+    /* CopilotKit Interactive Toast */
+    .copilot-toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .copilot-toast {
+      background: var(--ink);
+      color: #FFFFFF;
+      border-left: 3px solid var(--accent);
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: auto;
+    }
+    .copilot-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Buyer table search highlight */
+    .buyer-match-highlight {
+      background-color: rgba(31, 78, 70, 0.12) !important;
+      outline: 1px solid var(--accent);
+      transition: background-color 0.3s ease;
+    }
+
     /* Animations & Reduced Motion */
     @media (prefers-reduced-motion: reduce) {
       * {
@@ -1181,12 +1767,16 @@
         </button>
         <a href="/" class="brand-link" aria-label="TradePilot Home">
           <span class="brand-title">TradePilot AI</span>
-          <span class="brand-descriptor">Customs & Advisory Desk</span>
+          <span class="brand-descriptor">TradePilot Copilot Desk</span>
         </a>
       </div>
 
       <div class="header-tools">
-        <div class="status-indicator">
+        <button id="hitlToggleBtn" class="hitl-toggle-pill active" onclick="toggleHitlMode()" title="Toggle Human-in-the-Loop review before dossier finalization">
+          <span class="hitl-dot"></span>
+          <span id="hitlLabel">Human Review: ON</span>
+        </button>
+        <div class="status-indicator" title="AG-UI Protocol active on /copilotkit & /ag-ui (agent: tradeAgent)">
           <span class="status-dot" aria-hidden="true"></span>
           <span>LangGraph Copilot Active</span>
         </div>
@@ -1278,7 +1868,18 @@
     <!-- Right Workspace: Editorial Document Ledger -->
     <section class="desk-main" id="deskMain" aria-label="Customs ledger document">
       <div class="doc-top-bar">
-        <span class="doc-badge-pill">Autonomous Intelligence Dossier</span>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="doc-badge-pill">Autonomous Intelligence Dossier</span>
+          <div class="dossier-tool-tabs" id="dossierToolTabs" role="tablist">
+            <button class="dossier-tab active" id="tabBtnMatrix" onclick="CopilotKitRuntime.executeAction('open_dossier_tab', {tab: 'matrix'})">Matrix Dossier</button>
+            <button class="dossier-tab" id="tabBtnChart" onclick="CopilotKitRuntime.executeAction('open_dossier_tab', {tab: 'chart'})">Market Visualizer</button>
+            <button class="dossier-tab" id="tabBtnStandards" onclick="CopilotKitRuntime.executeAction('open_dossier_tab', {tab: 'standards'})">Trade Standards</button>
+            <button class="dossier-tool-btn" id="btnExportDossier" onclick="CopilotKitRuntime.executeAction('export_dossier_file', {format: 'csv'})" title="Export as CSV">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
         <button class="close-report-btn" onclick="closeReportPanel()" title="Collapse Dossier and return to chat">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           Collapse Dossier
@@ -1293,6 +1894,24 @@
         <h1 class="doc-title" id="reportTitle">Trade Intelligence & Advisory Dossier</h1>
         <div class="doc-subtitle" id="reportSubtitle">
           Awaiting inquiry dispatch. Analysis synthesizes tariff schedules, UN Comtrade flows, Incoterms risk allocation, and verified buyer registers.
+        </div>
+
+        <!-- Copilot Interactive Visualizer Section -->
+        <div class="market-chart-section" id="marketChartSection" style="display: none;">
+          <div class="chart-header">
+            <div class="chart-title-area">
+              <span class="chart-badge">CopilotKit Generative Tool</span>
+              <h3 class="chart-title" id="marketChartTitle">Bilateral Feasibility Comparison</h3>
+            </div>
+            <div class="chart-controls">
+              <button class="chart-mode-pill active" id="chartPillRadar" onclick="switchChartMode('radar')">Radar Analysis</button>
+              <button class="chart-mode-pill" id="chartPillBar" onclick="switchChartMode('bar')">Bar Comparison</button>
+            </div>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="marketChartCanvas"></canvas>
+          </div>
+          <div class="chart-caption" id="marketChartCaption">Generative multi-axis comparison synthesized dynamically by agent market rankings.</div>
         </div>
 
         <!-- Document Content Area (Bug 1 fix: rendered via marked) -->
@@ -1464,12 +2083,13 @@
       return block;
     }
 
-    // Bug 3 fix: Lightweight intent gate for greetings & casual small talk
+    // Lightweight intent gate for greetings & casual small talk
     function isCasualGreeting(query) {
-      const clean = query.trim().toLowerCase();
-      const greetingPattern = /^(hi|hey|hello|greetings|good\s*(morning|afternoon|evening)|who\s*are\s*you|what\s*can\s*you\s*(do|hi|help)?|help|test)[\s\.\?!]*$/i;
+      const clean = query.trim().toLowerCase().replace(/[,\.?!]/g, ' ').replace(/\s+/g, ' ').trim();
+      const greetingPattern = /^(hi|hey|hello|greetings|how are you|good (morning|afternoon|evening)|who are you|what can you (do|help)|help|test|hi how are you|hello how are you|hey how are you)$/i;
       return greetingPattern.test(clean);
     }
+
 
     // Bug 5 fix: Clean agent naming formatter
     function formatAgentName(rawName) {
@@ -1562,6 +2182,33 @@
       }
     }
 
+    async function syncThreadsFromBackend() {
+      try {
+        const resp = await fetch('/api/v1/threads');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.threads && data.threads.length > 0) {
+            const local = getStoredSessions();
+            const localMap = new Map(local.map(s => [s.id, s]));
+            const merged = data.threads.map(t => {
+              const existing = localMap.get(t.id) || {};
+              return {
+                ...existing,
+                id: t.id,
+                title: t.title || existing.title || 'Trade Inquiry',
+                timestamp: new Date(t.updated_at || t.created_at || Date.now()).getTime(),
+                metadata: t.metadata || {}
+              };
+            });
+            saveStoredSessions(merged);
+            renderHistoryList();
+          }
+        }
+      } catch (err) {
+        console.warn("Could not sync threads from backend:", err);
+      }
+    }
+
     function initHistorySidebar() {
       const stored = localStorage.getItem('tradepilot_history_collapsed');
       const layout = document.getElementById('deskLayout');
@@ -1569,6 +2216,7 @@
         layout.classList.add('history-collapsed');
       }
       renderHistoryList();
+      syncThreadsFromBackend();
     }
 
     function startNewSession() {
@@ -1610,114 +2258,153 @@
       }
     }
 
-    function loadSession(sessionId) {
+    async function loadSession(sessionId) {
       const sessions = getStoredSessions();
       const session = sessions.find(s => s.id === sessionId);
-      if (!session) return;
+      currentThreadId = sessionId;
+      const title = (session && session.title) || 'Inquiry';
+      document.getElementById('currentSessionLabel').innerText = `Thread // ${escapeHtml(title.slice(0, 24))}`;
 
-      currentThreadId = session.id;
-      document.getElementById('currentSessionLabel').innerText = `Thread // ${escapeHtml((session.title || 'Inquiry').slice(0, 24))}`;
-
-      // Restore messages
       const stream = document.getElementById('dialogStream');
       stream.innerHTML = '';
 
-      if (session.messages && session.messages.length > 0) {
-        session.messages.forEach(msg => {
-          if (msg.role === 'user') {
-            appendUserMessage(msg.text);
-          } else {
-            appendAssistantMessage(msg.html);
+      // 1. Try loading persistent messages from PostgreSQL backend
+      let loadedFromBackend = false;
+      try {
+        const resp = await fetch(`/api/v1/threads/${sessionId}/messages`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.messages && data.messages.length > 0) {
+            loadedFromBackend = true;
+            data.messages.forEach(msg => {
+              if (msg.role === 'user') {
+                appendUserMessage(msg.content);
+              } else {
+                let formatted = escapeHtml(msg.content);
+                if (window.marked && typeof window.marked.parse === 'function') {
+                  formatted = marked.parse(msg.content);
+                }
+                appendAssistantMessage(formatted);
+                if (msg.hitl_action) {
+                  renderApprovalCard(msg.hitl_action);
+                }
+              }
+            });
           }
-        });
-      } else {
-        stream.innerHTML = `
-          <div class="msg-block">
-            <div class="msg-author">TradePilot // Session Restored</div>
-            <div class="msg-body-assistant">Continuing previous conversation thread.</div>
-          </div>
-        `;
+        }
+      } catch (err) {
+        console.warn("Failed to load messages from backend:", err);
+      }
+
+      // 2. Fallback to local session messages if backend returned empty
+      if (!loadedFromBackend) {
+        if (session && session.messages && session.messages.length > 0) {
+          session.messages.forEach(msg => {
+            if (msg.role === 'user') {
+              appendUserMessage(msg.text);
+            } else {
+              appendAssistantMessage(msg.html);
+            }
+          });
+        } else {
+          stream.innerHTML = `
+            <div class="msg-block">
+              <div class="msg-author">TradePilot // Session Restored</div>
+              <div class="msg-body-assistant">Continuing previous conversation thread.</div>
+            </div>
+          `;
+        }
       }
 
       // Restore dossier report if available
-      const hasRankings = session.rankings && session.rankings.length > 0;
-      if (session.report_markdown || hasRankings) {
-        document.getElementById('docSerial').innerText = `DOSSIER ID: ${session.id.slice(0, 8).toUpperCase()}`;
-        document.getElementById('docTimestamp').innerText = `DATE: ${new Date(session.timestamp).toISOString().slice(0, 10)}`;
-        document.getElementById('reportTitle').innerText = hasRankings
-          ? `Export Market Study: ${escapeHtml((session.title || '').slice(0, 60))}`
-          : `Trade Advisory: ${escapeHtml((session.title || '').slice(0, 60))}`;
-        document.getElementById('reportSubtitle').innerText = hasRankings
-          ? `Synthesized across ${session.rankings.length} target destinations with ${session.evidence_count || 0} cited data points.`
-          : `Direct advisory guidance synthesized with ${session.evidence_count || 0} verified data points.`;
+      if (session) {
+        const hasRankings = session.rankings && session.rankings.length > 0;
+        if (session.report_markdown || hasRankings) {
+          document.getElementById('docSerial').innerText = `DOSSIER ID: ${session.id.slice(0, 8).toUpperCase()}`;
+          document.getElementById('docTimestamp').innerText = `DATE: ${new Date(session.timestamp).toISOString().slice(0, 10)}`;
+          document.getElementById('reportTitle').innerText = hasRankings
+            ? `Export Market Study: ${escapeHtml((session.title || '').slice(0, 60))}`
+            : `Trade Advisory: ${escapeHtml((session.title || '').slice(0, 60))}`;
+          document.getElementById('reportSubtitle').innerText = hasRankings
+            ? `Synthesized across ${session.rankings.length} target destinations with ${session.evidence_count || 0} cited data points.`
+            : `Direct advisory guidance synthesized with ${session.evidence_count || 0} verified data points.`;
 
-        let renderedHtml = '';
-        const rawMd = session.report_markdown || '';
-        if (window.marked && typeof window.marked.parse === 'function') {
-          renderedHtml = marked.parse(rawMd);
-        } else {
-          renderedHtml = fallbackMarkdown(rawMd);
-        }
+          let renderedHtml = '';
+          const rawMd = session.report_markdown || '';
+          if (window.marked && typeof window.marked.parse === 'function') {
+            renderedHtml = marked.parse(rawMd);
+          } else {
+            renderedHtml = fallbackMarkdown(rawMd);
+          }
 
-        if (hasRankings) {
-          renderedHtml += `
-            <h2 style="font-family: var(--font-serif); font-size: 19px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin: 28px 0 12px 0;">
-              Target Market Prioritization Ledger
-            </h2>
-            <table class="ledger-table" aria-label="Market Rankings Matrix">
-              <thead>
-                <tr>
-                  <th style="width: 10%;">Rank</th>
-                  <th style="width: 25%;">Destination</th>
-                  <th style="width: 20%;">Composite Fit</th>
-                  <th style="width: 20%;">Demand Growth</th>
-                  <th style="width: 25%;">Applied Tariff (MFN)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${session.rankings.map(r => `
+          if (hasRankings) {
+            renderedHtml += `
+              <h2 style="font-family: var(--font-serif); font-size: 19px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin: 28px 0 12px 0;">
+                Target Market Prioritization Ledger
+              </h2>
+              <table class="ledger-table" aria-label="Market Rankings Matrix">
+                <thead>
                   <tr>
-                    <td style="font-family: var(--font-mono); font-weight:600;">#${r.rank}</td>
-                    <td><strong>${r.country}</strong></td>
-                    <td>
-                      <div class="metric-cell-score">
-                        <span class="metric-num">${Math.round(r.overall_score || 0)}/100</span>
-                        <div class="metric-hairline-track">
-                          <div class="metric-hairline-fill" style="width: ${Math.min(Math.round(r.overall_score || 0), 100)}%;"></div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style="font-family: var(--font-mono); color: ${r.demand_growth_pct >= 0 ? 'var(--ok)' : 'var(--danger)'};">
-                      ${r.demand_growth_pct !== undefined ? (r.demand_growth_pct > 0 ? '+' : '') + r.demand_growth_pct + '%' : 'N/A'}
-                    </td>
-                    <td style="font-family: var(--font-mono);">
-                      ${r.tariff_rate_pct !== undefined ? r.tariff_rate_pct + '%' : '0.0%'}
-                    </td>
+                    <th style="width: 10%;">Rank</th>
+                    <th style="width: 25%;">Destination</th>
+                    <th style="width: 20%;">Composite Fit</th>
+                    <th style="width: 20%;">Demand Growth</th>
+                    <th style="width: 25%;">Applied Tariff (MFN)</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
-        document.getElementById('reportContent').innerHTML = renderedHtml;
+                </thead>
+                <tbody>
+                  ${session.rankings.map(r => `
+                    <tr>
+                      <td style="font-family: var(--font-mono); font-weight:600;">#${r.rank}</td>
+                      <td><strong>${r.country}</strong></td>
+                      <td>
+                        <div class="metric-cell-score">
+                          <span class="metric-num">${Math.round(r.overall_score || 0)}/100</span>
+                          <div class="metric-hairline-track">
+                            <div class="metric-hairline-fill" style="width: ${Math.min(Math.round(r.overall_score || 0), 100)}%;"></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="font-family: var(--font-mono); color: ${r.demand_growth_pct >= 0 ? 'var(--ok)' : 'var(--danger)'};">
+                        ${r.demand_growth_pct !== undefined ? (r.demand_growth_pct > 0 ? '+' : '') + r.demand_growth_pct + '%' : 'N/A'}
+                      </td>
+                      <td style="font-family: var(--font-mono);">
+                        ${r.tariff_rate_pct !== undefined ? r.tariff_rate_pct + '%' : '0.0%'}
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+          document.getElementById('reportContent').innerHTML = renderedHtml;
 
-        if (hasRankings) {
-          openReportPanel();
+          if (hasRankings) {
+            openReportPanel();
+          } else {
+            closeReportPanel();
+          }
         } else {
           closeReportPanel();
         }
-      } else {
-        closeReportPanel();
       }
 
       renderHistoryList();
     }
 
-    function deleteSession(sessionId, e) {
+    async function deleteSession(sessionId, e) {
       if (e) e.stopPropagation();
       let sessions = getStoredSessions();
       sessions = sessions.filter(s => s.id !== sessionId);
       saveStoredSessions(sessions);
+      
+      // Delete from PostgreSQL
+      try {
+        await fetch(`/api/v1/threads/${sessionId}`, { method: 'DELETE' });
+      } catch (err) {
+        console.warn("Could not delete thread from backend:", err);
+      }
+
       if (currentThreadId === sessionId) {
         startNewSession();
       } else {
@@ -1760,16 +2447,1036 @@
       }
     }
 
+    let enableHitlMode = true;
+
+
+    function toggleHitlMode() {
+      enableHitlMode = !enableHitlMode;
+      const btn = document.getElementById('hitlToggleBtn');
+      const label = document.getElementById('hitlLabel');
+      if (btn && label) {
+        if (enableHitlMode) {
+          btn.className = 'hitl-toggle-pill active';
+          label.innerText = 'Human Review: ON';
+          btn.title = 'Human-in-the-Loop active: graph pauses for ranking review & weight tuning';
+        } else {
+          btn.className = 'hitl-toggle-pill';
+          label.innerText = 'Human Review: OFF';
+          btn.title = 'Human-in-the-Loop disabled: graph executes autonomously';
+        }
+      }
+    }
+
+    function handleFinalReportDisplay(data, assistantBlock, query) {
+      const hasRankings = data.rankings && data.rankings.length > 0;
+      const directAns = data.direct_answer;
+
+      // Update Document Headers
+      const now = new Date();
+      document.getElementById('docSerial').innerText = `DOSSIER ID: ${data.run_id ? data.run_id.slice(0, 8).toUpperCase() : 'TP-LEDGER'}`;
+      document.getElementById('docTimestamp').innerText = `DATE: ${now.toISOString().slice(0, 10)}`;
+      document.getElementById('reportTitle').innerText = hasRankings
+        ? `Export Market Study: ${escapeHtml(query.slice(0, 60))}`
+        : `Trade Advisory: ${escapeHtml(query.slice(0, 60))}`;
+      document.getElementById('reportSubtitle').innerText = hasRankings
+        ? `Synthesized across ${data.rankings.length} target destinations with ${data.evidence_count || 0} cited data points.`
+        : `Direct advisory guidance synthesized with ${data.evidence_count || 0} verified data points.`;
+
+      // Parse Markdown properly via marked.js
+      const rawMd = data.report_markdown || directAns || '';
+      let renderedHtml = '';
+      if (window.marked && typeof window.marked.parse === 'function') {
+        marked.setOptions({ gfm: true, breaks: true });
+        renderedHtml = marked.parse(rawMd);
+      } else {
+        renderedHtml = fallbackMarkdown(rawMd);
+      }
+
+      if (data.evidence_count === 0 && hasRankings) {
+        renderedHtml += `
+          <div class="notice-box warn">
+            <strong>Evidence Audit:</strong> No observational records collected for this specific query scope. Primary data points require secondary customs catalog inspection.
+          </div>
+        `;
+      }
+
+      // Append structured Market Rankings Ledger Table if present
+      if (hasRankings) {
+        renderedHtml += `
+          <h2 style="font-family: var(--font-serif); font-size: 19px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin: 28px 0 12px 0;">
+            Target Market Prioritization Ledger
+          </h2>
+          <table class="ledger-table" aria-label="Market Rankings Matrix">
+            <thead>
+              <tr>
+                <th style="width: 10%;">Rank</th>
+                <th style="width: 25%;">Destination</th>
+                <th style="width: 20%;">Composite Fit</th>
+                <th style="width: 20%;">Demand Growth</th>
+                <th style="width: 25%;">Applied Tariff (MFN)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rankings.map(r => `
+                <tr>
+                  <td style="font-family: var(--font-mono); font-weight:600;">#${r.rank}</td>
+                  <td><strong>${r.country}</strong></td>
+                  <td>
+                    <div class="metric-cell-score">
+                      <span class="metric-num">${Math.round(r.overall_score || r.suitability_score || 0)}/100</span>
+                      <div class="metric-hairline-track">
+                        <div class="metric-hairline-fill" style="width: ${Math.min(Math.round(r.overall_score || r.suitability_score || 0), 100)}%;"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style="font-family: var(--font-mono); color: ${r.demand_growth_pct >= 0 ? 'var(--ok)' : 'var(--danger)'};">
+                    ${r.demand_growth_pct !== undefined ? (r.demand_growth_pct > 0 ? '+' : '') + r.demand_growth_pct + '%' : 'N/A'}
+                  </td>
+                  <td style="font-family: var(--font-mono);">
+                    ${r.tariff_rate_pct !== undefined ? r.tariff_rate_pct + '%' : '0.0%'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      document.getElementById('reportContent').innerHTML = renderedHtml;
+
+      // Update sidebar assistant note and render direct answer into chat stream
+      const assistantBody = assistantBlock.querySelector('.msg-body-assistant');
+      const statusText = assistantBlock.querySelector('.stepper-main-status') || assistantBlock.querySelector('span');
+      
+      if (hasRankings) {
+        if (statusText) statusText.innerHTML = `Export study completed. <strong>${data.rankings.length} target markets scored</strong>. Dossier document opened at right.`;
+        openReportPanel();
+      } else {
+        if (statusText) statusText.innerHTML = `Inquiry processed. Direct advisory answer provided below.`;
+        closeReportPanel();
+      }
+
+      // Auto-dispatch frontend tools and generative charts
+      if (data.ui_actions && Array.isArray(data.ui_actions) && data.ui_actions.length > 0) {
+        data.ui_actions.forEach(action => {
+          CopilotKitRuntime.executeAction(action.name, action.parameters);
+        });
+      } else if (hasRankings) {
+        CopilotKitRuntime.executeAction('render_market_chart', { rankings: data.rankings, chart_type: 'radar' });
+      }
+
+      // Render direct textual answer into the left chat dialogue stream
+      const textToDisplay = directAns || (!hasRankings ? data.report_markdown : null);
+      if (textToDisplay && assistantBody) {
+        let answerHtml = '';
+        if (window.marked && typeof window.marked.parse === 'function') {
+          answerHtml = marked.parse(textToDisplay);
+        } else {
+          answerHtml = fallbackMarkdown(textToDisplay);
+        }
+        const answerDiv = document.createElement('div');
+        answerDiv.className = 'chat-direct-answer';
+        answerDiv.style.marginTop = '12px';
+        answerDiv.style.paddingTop = '10px';
+        answerDiv.style.borderTop = '1px solid var(--rule)';
+        answerDiv.style.lineHeight = '1.6';
+        answerDiv.innerHTML = answerHtml;
+
+        // For advisory queries, provide an on-demand button to open the full dossier document
+        if (!hasRankings) {
+          const btnOpen = document.createElement('button');
+          btnOpen.className = 'view-dossier-pill-btn';
+          btnOpen.innerHTML = `
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            View Synthesized Dossier Document
+          `;
+          btnOpen.onclick = openReportPanel;
+          answerDiv.appendChild(btnOpen);
+        }
+
+        assistantBody.appendChild(answerDiv);
+      }
+
+      // Persist Session & History
+      const sessions = getStoredSessions();
+      let currentSession = sessions.find(s => s.id === currentThreadId);
+      if (!currentSession) {
+        currentSession = {
+          id: currentThreadId,
+          title: query.length > 36 ? query.slice(0, 36) + '...' : query,
+          timestamp: Date.now(),
+          messages: [],
+          rankings: data.rankings || [],
+          report_markdown: data.report_markdown || '',
+          evidence_count: data.evidence_count || 0
+        };
+        sessions.unshift(currentSession);
+      } else {
+        currentSession.timestamp = Date.now();
+        if (hasRankings) {
+          currentSession.rankings = data.rankings;
+          currentSession.report_markdown = data.report_markdown;
+        }
+      }
+
+      currentSession.messages.push({
+        role: 'user',
+        text: query
+      });
+      currentSession.messages.push({
+        role: 'assistant',
+        html: assistantBlock.querySelector('.msg-body-assistant') ? assistantBlock.querySelector('.msg-body-assistant').innerHTML : ''
+      });
+
+      saveStoredSessions(sessions);
+      renderHistoryList();
+      document.getElementById('currentSessionLabel').innerText = `Thread // ${escapeHtml(currentSession.title.slice(0, 24))}`;
+    }
+
+    // =========================================================================
+    // AG-UI Protocol & CopilotKit v2 Human-in-the-Loop Implementation
+    // Implements documented useInterrupt hook and dynamic ApprovalCard
+    // =========================================================================
+    const CopilotKitRuntime = {
+      agentId: "tradeAgent",
+      runtimeUrl: "/copilotkit",
+      actions: {},
+
+      /**
+       * Register a frontend action/tool callable by the agent or UI.
+       */
+      registerAction: function(name, handler) {
+        this.actions[name] = handler;
+      },
+
+      /**
+       * Execute a registered frontend action.
+       */
+      executeAction: function(name, parameters) {
+        if (typeof this.actions[name] === 'function') {
+          return this.actions[name](parameters || {});
+        } else {
+          console.warn(`[CopilotKit] Action "${name}" not registered on client.`);
+        }
+      },
+
+      /**
+       * Implementation of documented CopilotKit useInterrupt hook.
+       * Bridges the LangGraph graph-enforced interrupt, AG-UI protocol, and React-style DOM card.
+       */
+      useInterrupt: function({ agentId, render }) {
+        return {
+          agentId: agentId || "tradeAgent",
+          renderCard: function({ interrupt, resolve, cancel }) {
+            return render({ interrupt, resolve, cancel });
+          }
+        };
+      }
+    };
+
+    // =========================================================================
+    // CopilotKit Frontend Actions Implementation
+    // Dynamic tools accessible to the agent and user interface
+    // =========================================================================
+    let currentRankingsData = [];
+    let currentChartMode = 'radar';
+
+    function showCopilotToast(message, icon = "⚡") {
+      const container = document.getElementById("copilotToastContainer");
+      if (!container) return;
+      const toast = document.createElement("div");
+      toast.className = "copilot-toast";
+      toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add("show"));
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function switchChartMode(mode) {
+      currentChartMode = mode;
+      const radarBtn = document.getElementById('chartPillRadar');
+      const barBtn = document.getElementById('chartPillBar');
+      if (radarBtn) radarBtn.classList.toggle('active', mode === 'radar');
+      if (barBtn) barBtn.classList.toggle('active', mode === 'bar');
+      if (currentRankingsData && currentRankingsData.length > 0) {
+        renderMarketChartVisualization(currentRankingsData, mode);
+      }
+    }
+
+    function renderMarketChartVisualization(rankings, chartType = 'radar') {
+      currentRankingsData = rankings || [];
+      const canvas = document.getElementById('marketChartCanvas');
+      const chartSection = document.getElementById('marketChartSection');
+      if (!canvas || !chartSection) return;
+
+      if (!window.Chart) {
+        console.warn("Chart.js not loaded yet.");
+        return;
+      }
+
+      chartSection.style.display = 'block';
+
+      if (window.activeMarketChart) {
+        window.activeMarketChart.destroy();
+      }
+
+      const colors = [
+        { border: '#1F4E46', bg: 'rgba(31, 78, 70, 0.22)' },
+        { border: '#9A5B13', bg: 'rgba(154, 91, 19, 0.22)' },
+        { border: '#2F6B3F', bg: 'rgba(47, 107, 63, 0.22)' },
+        { border: '#8C2F2B', bg: 'rgba(140, 47, 43, 0.22)' },
+        { border: '#2A5D88', bg: 'rgba(42, 93, 136, 0.22)' }
+      ];
+
+      const topRankings = (rankings && rankings.length > 0) ? rankings.slice(0, 5) : [
+        { country: 'DEU', rank: 1, overall_score: 86, demand_growth_pct: 14.2, tariff_rate_pct: 3.3 },
+        { country: 'USA', rank: 2, overall_score: 82, demand_growth_pct: 18.5, tariff_rate_pct: 3.3 },
+        { country: 'ARE', rank: 3, overall_score: 79, demand_growth_pct: 9.8, tariff_rate_pct: 0.0 }
+      ];
+
+      if (chartType === 'radar') {
+        const labels = ['Overall Feasibility', 'Demand Growth', 'Tariff Advantage', 'Regulatory Fit', 'Logistics Readiness'];
+        const datasets = topRankings.map((r, idx) => {
+          const c = colors[idx % colors.length];
+          const overall = Math.min(Math.round(r.overall_score || r.suitability_score || r.composite_score || 75), 100);
+          const demand = Math.min(Math.max(Math.round(50 + (r.demand_growth_pct !== undefined ? r.demand_growth_pct * 2 : 20)), 20), 100);
+          const tariff = Math.min(Math.max(Math.round(100 - (r.tariff_rate_pct !== undefined ? r.tariff_rate_pct * 5 : 15)), 20), 100);
+          const compliance = Math.round(r.compliance_score ? r.compliance_score * 100 : (78 + (idx * 6) % 20));
+          const logistics = Math.round(r.logistics_score ? r.logistics_score * 100 : (82 - (idx * 5) % 15));
+
+          return {
+            label: `${r.country || 'Destination'} (#${r.rank || idx + 1})`,
+            data: [overall, demand, tariff, compliance, logistics],
+            borderColor: c.border,
+            backgroundColor: c.bg,
+            borderWidth: 2,
+            pointBackgroundColor: c.border,
+            pointRadius: 3
+          };
+        });
+
+        window.activeMarketChart = new Chart(canvas, {
+          type: 'radar',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              r: {
+                min: 0,
+                max: 100,
+                ticks: { display: false, stepSize: 20 },
+                grid: { color: 'rgba(217, 212, 199, 0.7)' },
+                angleLines: { color: 'rgba(217, 212, 199, 0.7)' },
+                pointLabels: {
+                  font: { family: "'IBM Plex Mono', monospace", size: 10.5 },
+                  color: '#5C6169'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: { family: "'IBM Plex Sans', sans-serif", size: 11 }, boxWidth: 12 }
+              }
+            }
+          }
+        });
+      } else {
+        const labels = topRankings.map(r => r.country || `Rank #${r.rank}`);
+        const dataValues = topRankings.map(r => Math.min(Math.round(r.overall_score || r.suitability_score || r.composite_score || 75), 100));
+        const bgColors = topRankings.map((_, idx) => colors[idx % colors.length].bg);
+        const borderColors = topRankings.map((_, idx) => colors[idx % colors.length].border);
+
+        window.activeMarketChart = new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Composite Market Fit (0-100)',
+              data: dataValues,
+              backgroundColor: bgColors,
+              borderColor: borderColors,
+              borderWidth: 1.5,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                min: 0,
+                max: 100,
+                grid: { color: 'rgba(217, 212, 199, 0.4)' },
+                ticks: { font: { family: "'IBM Plex Mono', monospace", size: 10 } }
+              },
+              x: {
+                grid: { display: false },
+                ticks: { font: { family: "'IBM Plex Mono', monospace", size: 11, weight: '600' } }
+              }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      }
+    }
+
+    function switchDossierTab(tab) {
+      const chartSection = document.getElementById('marketChartSection');
+      const reportContent = document.getElementById('reportContent');
+      const standardsSection = document.getElementById('referenceTablesSection');
+      const tabBtns = {
+        matrix: document.getElementById('tabBtnMatrix'),
+        chart: document.getElementById('tabBtnChart'),
+        standards: document.getElementById('tabBtnStandards')
+      };
+
+      Object.values(tabBtns).forEach(btn => btn && btn.classList.remove('active'));
+
+      openReportPanel();
+
+      if (tab === 'chart') {
+        if (chartSection) chartSection.style.display = 'block';
+        if (reportContent) reportContent.style.display = 'none';
+        if (standardsSection) standardsSection.style.display = 'none';
+        if (tabBtns.chart) tabBtns.chart.classList.add('active');
+        if (currentRankingsData && currentRankingsData.length > 0 && !window.activeMarketChart) {
+          renderMarketChartVisualization(currentRankingsData, currentChartMode);
+        }
+      } else if (tab === 'standards') {
+        if (chartSection) chartSection.style.display = 'none';
+        if (reportContent) reportContent.style.display = 'none';
+        if (standardsSection) standardsSection.style.display = 'block';
+        if (tabBtns.standards) tabBtns.standards.classList.add('active');
+      } else {
+        if (chartSection) chartSection.style.display = 'none';
+        if (reportContent) reportContent.style.display = 'block';
+        if (standardsSection) standardsSection.style.display = 'block';
+        if (tabBtns.matrix) tabBtns.matrix.classList.add('active');
+      }
+    }
+
+    function filterBuyersDirectory({ country, query }) {
+      const term = (query || country || '').toLowerCase().trim();
+      const report = document.getElementById('reportContent');
+      if (!report) return;
+
+      openReportPanel();
+      switchDossierTab('matrix');
+
+      report.querySelectorAll('.buyer-match-highlight').forEach(el => el.classList.remove('buyer-match-highlight'));
+
+      if (!term) return;
+
+      let matchCount = 0;
+      let firstMatch = null;
+
+      const elements = report.querySelectorAll('tr, li, p');
+      elements.forEach(el => {
+        if (el.textContent.toLowerCase().includes(term)) {
+          el.classList.add('buyer-match-highlight');
+          matchCount++;
+          if (!firstMatch) firstMatch = el;
+        }
+      });
+
+      if (firstMatch) {
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      showCopilotToast(`Copilot Action: Filtered directory for "${term}" (${matchCount} found)`, '🔍');
+      return { match_count: matchCount };
+    }
+
+    const PRESETS = {
+      'low_tariffs': { tariff_advantage: 0.50, market_demand: 0.20, regulatory_compliance: 0.15, logistics_risk: 0.15 },
+      'high_growth': { market_demand: 0.55, tariff_advantage: 0.15, regulatory_compliance: 0.15, logistics_risk: 0.15 },
+      'low_risk': { regulatory_compliance: 0.45, logistics_risk: 0.25, tariff_advantage: 0.15, market_demand: 0.15 },
+      'balanced': { market_demand: 0.30, tariff_advantage: 0.25, regulatory_compliance: 0.25, logistics_risk: 0.20 }
+    };
+
+    function applyScoringPreset({ preset_name, weights }) {
+      const targetWeights = weights || PRESETS[preset_name] || PRESETS['balanced'];
+      
+      document.querySelectorAll('.hitl-slider').forEach(slider => {
+        const dim = slider.getAttribute('data-dim');
+        if (dim && targetWeights[dim] !== undefined) {
+          slider.value = Math.round(targetWeights[dim] * 100);
+          slider.dispatchEvent(new Event('input'));
+        }
+      });
+
+      showCopilotToast(`Copilot Action: Applied ${preset_name || 'custom'} scoring preset`, '⚖️');
+      return { preset: preset_name, weights: targetWeights };
+    }
+
+    function exportDossierFile({ format }) {
+      const title = document.getElementById('reportTitle')?.innerText || 'TradePilot Advisory Dossier';
+      const serial = document.getElementById('docSerial')?.innerText || 'TP-DOSSIER';
+      const date = document.getElementById('docTimestamp')?.innerText || new Date().toISOString().slice(0, 10);
+      const report = document.getElementById('reportContent');
+
+      let csvLines = [
+        `"TradePilot Autonomous Intelligence Ledger"`,
+        `"Document ID:","${serial}"`,
+        `"Date:","${date}"`,
+        `"Title:","${title.replace(/"/g, '""')}"`,
+        `""`
+      ];
+
+      if (currentRankingsData && currentRankingsData.length > 0) {
+        csvLines.push(`"Target Market Prioritization Rankings"`);
+        csvLines.push(`"Rank","Country / Destination","Composite Score","Demand Growth %","Applied Tariff (MFN) %"`);
+        currentRankingsData.forEach(r => {
+          csvLines.push(`"${r.rank || ''}","${r.country || ''}","${r.overall_score || r.composite_score || 0}","${r.demand_growth_pct || ''}","${r.tariff_rate_pct || ''}"`);
+        });
+        csvLines.push(`""`);
+      }
+
+      if (report) {
+        csvLines.push(`"Synthesized Dossier Content"`);
+        const textLines = report.innerText.split('\n').filter(l => l.trim().length > 0);
+        textLines.forEach(line => {
+          csvLines.push(`"${line.replace(/"/g, '""')}"`);
+        });
+      }
+
+      const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvLines.join("\n"));
+      const link = document.createElement("a");
+      link.setAttribute("href", csvContent);
+      link.setAttribute("download", `TradePilot_Export_Dossier_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showCopilotToast(`Copilot Action: Dossier exported as CSV file`, '💾');
+      return { status: "downloaded" };
+    }
+
+    // Register all actions with CopilotKitRuntime
+    CopilotKitRuntime.registerAction('render_market_chart', ({ rankings, chart_type }) => {
+      openReportPanel();
+      switchDossierTab('chart');
+      renderMarketChartVisualization(rankings || currentRankingsData, chart_type || currentChartMode);
+      showCopilotToast("Copilot Action: Rendered generative market chart", "📊");
+    });
+
+    CopilotKitRuntime.registerAction('open_dossier_tab', ({ tab }) => {
+      switchDossierTab(tab);
+      showCopilotToast(`Copilot Action: Switched view to ${tab || 'matrix'}`, "📑");
+    });
+
+    CopilotKitRuntime.registerAction('filter_buyers_directory', filterBuyersDirectory);
+    CopilotKitRuntime.registerAction('apply_scoring_preset', applyScoringPreset);
+    CopilotKitRuntime.registerAction('export_dossier_file', exportDossierFile);
+
+    /**
+     * Universal CopilotKit ApprovalCard for TradePilot AI.
+     * Renders dynamic AI-generated action proposals, options, and human decisions without hardcoding.
+     */
+    const ApprovalCard = CopilotKitRuntime.useInterrupt({
+      agentId: "tradeAgent",
+      render: ({ interrupt, resolve, cancel }) => {
+        const data = interrupt?.metadata || interrupt?.data || {};
+        const cpType = (data.type || data.checkpoint || interrupt?.type || "approval").toLowerCase();
+        const cardId = "agui_card_" + Math.random().toString(36).substring(2, 9);
+        const card = document.createElement("div");
+        card.className = "approval-card";
+        card.id = cardId;
+
+        const actionPayload = data.action || {
+          operation: cpType,
+          description: interrupt?.message || data.message || "Human review requested"
+        };
+
+        // 1. Header with AG-UI protocol & agent identity badges
+        let headerHtml = `
+          <div class="agui-header">
+            <span class="agui-protocol-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              AG-UI PROTOCOL // INTERRUPT
+            </span>
+            <span class="agui-agent-badge">agent: <code>tradeAgent</code> &bull; [${escapeHtml(cpType.toUpperCase())}]</span>
+          </div>
+        `;
+
+        // 2. Title & AI-generated contextual prompt
+        let titleHtml = `
+          <h3 style="margin: 0 0 6px 0; font-family: var(--font-serif); font-size: 16px; color: var(--ink);">
+            ${escapeHtml(data.title || "Approval Required")}
+          </h3>
+          <p class="hitl-desc" style="margin: 0 0 12px 0;">
+            ${escapeHtml(interrupt?.message || data.message || "Review the proposed agent action and authorize execution.")}
+          </p>
+        `;
+
+        // 3. Proposed Action (AG-UI JSON Preview matching specification)
+        let actionJsonHtml = `
+          <div class="agui-action-box">
+            <div class="agui-action-label">
+              <span>Proposed Action (AG-UI State Payload)</span>
+              <span style="font-size: 9.5px; opacity: 0.8;">langgraph:interrupt</span>
+            </div>
+            <pre class="agui-json">${escapeHtml(JSON.stringify(actionPayload, null, 2))}</pre>
+          </div>
+        `;
+
+        // 4. Dynamic Domain Controls (AI-generated options, no hardcoding)
+        let controlsHtml = "";
+
+        if (cpType === "clarification") {
+          // Dynamic AI-generated options for missing origin country or export hub
+          const optionsList = Array.isArray(data.options) ? data.options : [];
+          controlsHtml = `
+            <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink); margin-top: 10px;">
+              AI Recommended Origin Countries (Dynamically Generated):
+            </div>
+            <div class="agui-options-grid" id="${cardId}_options_grid">
+              ${optionsList.map((opt, idx) => {
+                const code = typeof opt === "string" ? opt : (opt.code || opt.value || `OPT_${idx}`);
+                const label = typeof opt === "string" ? opt : (opt.label || opt.name || code);
+                const rationale = typeof opt === "object" && opt.rationale ? opt.rationale : "";
+                return `
+                  <button type="button" class="agui-option-card" data-code="${escapeHtml(code)}">
+                    <div class="agui-option-title">
+                      <span>${escapeHtml(label)}</span>
+                      <code style="font-size: 10px; color: var(--accent);">${escapeHtml(code)}</code>
+                    </div>
+                    ${rationale ? `<div class="agui-option-rationale">${escapeHtml(rationale)}</div>` : ""}
+                  </button>
+                `;
+              }).join("")}
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); margin-top: 8px;">
+              Or specify any 3-letter ISO origin country code:
+            </div>
+            <div class="hitl-input-row">
+              <input type="text" class="hitl-text-input" id="${cardId}_custom_input" placeholder="e.g. IDN, MEX, ZAF, TUR" maxlength="3" style="text-transform: uppercase;">
+            </div>
+          `;
+        } else if (cpType === "plan_approval" || cpType === "approval") {
+          // Dynamic destination markets shortlisted by supervisor & AI
+          const candidateList = data.candidate_destinations || (actionPayload && actionPayload.candidate_destinations) || ["DEU", "USA"];
+          controlsHtml = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+              <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink);">
+                Target Destination Markets for Specialist Dispatch:
+              </span>
+              <button type="button" class="sidebar-action-btn" id="${cardId}_toggle_all" style="font-size: 10px;">Toggle All</button>
+            </div>
+            <div class="hitl-market-checkboxes" id="${cardId}_dest_checkboxes">
+              ${candidateList.map(c => `
+                <label class="hitl-market-item">
+                  <input type="checkbox" value="${escapeHtml(c)}" checked>
+                  <span><strong>${escapeHtml(c)}</strong> &mdash; Quantitative trade tariffs, SPS regulations, and commercial buyer discovery</span>
+                </label>
+              `).join("")}
+            </div>
+          `;
+        } else if (cpType === "weight_tuning" || cpType === "dossier_review") {
+          // Dynamic criteria weight tuning with AI recommended weights & dimension guidance
+          const rankings = data.rankings || [];
+          const weights = data.weights || {
+            market_size: 0.25,
+            demand_growth: 0.25,
+            tariff_advantage: 0.20,
+            supplier_competition: 0.15,
+            macro_stability: 0.15
+          };
+          const guidance = data.dimension_guidance || {};
+
+          controlsHtml = `
+            ${rankings.length > 0 ? `
+              <div style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink); margin-top: 10px;">
+                Preliminary Multi-Criteria Market Rankings:
+              </div>
+              <div class="hitl-rankings-preview">
+                ${rankings.slice(0, 4).map(r => `
+                  <div class="hitl-rank-item">
+                    <div><strong>#${r.rank} ${escapeHtml(r.country_name || r.country)}</strong> <span style="font-family: var(--font-mono); color: var(--ink-muted); font-size: 11px;">(${escapeHtml(r.country)})</span></div>
+                    <div style="font-family: var(--font-mono); font-weight: 600; color: var(--accent);">${Math.round(r.overall_score || r.suitability_score || 0)}/100</div>
+                  </div>
+                `).join("")}
+              </div>
+            ` : ""}
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+              <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink);">AI Recommended Multi-Criteria Weights</span>
+              <button type="button" class="sidebar-action-btn" id="${cardId}_reset_weights" style="font-size: 10px;">Reset AI Weights</button>
+            </div>
+            
+            <div class="hitl-weights-grid" id="${cardId}_weights_grid">
+              ${Object.keys(weights).map(dim => {
+                const labelText = dim.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const valPercent = Math.round((weights[dim] || 0.2) * 100);
+                const dimGuide = guidance[dim] || "";
+                return `
+                  <div class="hitl-weight-item">
+                    <div class="hitl-weight-label">
+                      <span>${escapeHtml(labelText)}</span>
+                      <span id="${cardId}_lbl_${dim}">${valPercent}%</span>
+                    </div>
+                    <input type="range" class="hitl-slider" data-dim="${escapeHtml(dim)}" id="${cardId}_sl_${dim}" min="0" max="100" step="5" value="${valPercent}">
+                    ${dimGuide ? `<span style="font-size: 10px; color: var(--ink-faint); font-family: var(--font-mono);">${escapeHtml(dimGuide)}</span>` : ""}
+                  </div>
+                `;
+              }).join("")}
+            </div>
+            <div class="hitl-weight-sum" id="${cardId}_weight_sum">Total Weight: 100% (Balanced)</div>
+          `;
+        }
+
+        // 5. Actions Row with Approve, Reject, and Cancel matching useInterrupt
+        let actionsHtml = `
+          <div class="agui-actions-row" id="${cardId}_actions_row">
+            <button class="agui-btn-approve" id="${cardId}_btn_approve">
+              &#10003; Approve Proposed Action
+            </button>
+            <button class="agui-btn-reject" id="${cardId}_btn_reject">
+              Reject
+            </button>
+            <button class="agui-btn-cancel" id="${cardId}_btn_cancel">
+              Cancel
+            </button>
+          </div>
+        `;
+
+        card.innerHTML = headerHtml + titleHtml + actionJsonHtml + controlsHtml + actionsHtml;
+
+        // Wire interactive state
+        let selectedOptionCode = "";
+        let currentSlidersState = data.weights ? { ...data.weights } : {
+          market_size: 0.25,
+          demand_growth: 0.25,
+          tariff_advantage: 0.20,
+          supplier_competition: 0.15,
+          macro_stability: 0.15
+        };
+
+        // Option cards selection logic
+        const optButtons = card.querySelectorAll(".agui-option-card");
+        const customInputEl = card.querySelector(`#${cardId}_custom_input`);
+        if (optButtons.length > 0) {
+          optButtons.forEach(btn => {
+            btn.onclick = () => {
+              optButtons.forEach(b => b.classList.remove("selected"));
+              btn.classList.add("selected");
+              selectedOptionCode = btn.getAttribute("data-code");
+              if (customInputEl) customInputEl.value = selectedOptionCode;
+            };
+          });
+        }
+        if (customInputEl) {
+          customInputEl.oninput = () => {
+            selectedOptionCode = customInputEl.value.trim().toUpperCase();
+            optButtons.forEach(b => {
+              if (b.getAttribute("data-code") === selectedOptionCode) {
+                b.classList.add("selected");
+              } else {
+                b.classList.remove("selected");
+              }
+            });
+          };
+        }
+
+        // Checkbox toggle logic
+        const toggleAllBtn = card.querySelector(`#${cardId}_toggle_all`);
+        if (toggleAllBtn) {
+          let allChecked = true;
+          toggleAllBtn.onclick = () => {
+            allChecked = !allChecked;
+            card.querySelectorAll(`#${cardId}_dest_checkboxes input[type="checkbox"]`).forEach(cb => {
+              cb.checked = allChecked;
+            });
+          };
+        }
+
+        // Weight sliders dynamic balance logic
+        const sliders = card.querySelectorAll(`#${cardId}_weights_grid .hitl-slider`);
+        const sumEl = card.querySelector(`#${cardId}_weight_sum`);
+        function recalcWeights() {
+          let total = 0;
+          sliders.forEach(s => {
+            const dim = s.getAttribute("data-dim");
+            const val = parseInt(s.value, 10);
+            total += val;
+            const lbl = card.querySelector(`#${cardId}_lbl_${dim}`);
+            if (lbl) lbl.innerText = `${val}%`;
+          });
+          if (sumEl) {
+            sumEl.innerText = `Total Weight: ${total}% ${total === 100 ? '(Balanced)' : '(Normalized automatically)'}`;
+            sumEl.style.color = total === 100 ? 'var(--ok)' : 'var(--warn)';
+          }
+          const normFactor = total > 0 ? 1 / total : 1;
+          sliders.forEach(s => {
+            const dim = s.getAttribute("data-dim");
+            currentSlidersState[dim] = (parseInt(s.value, 10) * normFactor);
+          });
+        }
+        sliders.forEach(s => {
+          s.oninput = recalcWeights;
+        });
+
+        const resetWeightsBtn = card.querySelector(`#${cardId}_reset_weights`);
+        if (resetWeightsBtn && data.weights) {
+          resetWeightsBtn.onclick = () => {
+            Object.keys(data.weights).forEach(dim => {
+              const sl = card.querySelector(`#${cardId}_sl_${dim}`);
+              if (sl) sl.value = Math.round(data.weights[dim] * 100);
+            });
+            recalcWeights();
+          };
+        }
+
+        // Button Action Wiring
+        const actionsRow = card.querySelector(`#${cardId}_actions_row`);
+
+        card.querySelector(`#${cardId}_btn_approve`).onclick = () => {
+          if (cpType === "clarification") {
+            const finalOrigin = (customInputEl ? customInputEl.value : selectedOptionCode).trim().toUpperCase();
+            if (!finalOrigin || finalOrigin.length !== 3) {
+              alert("Please select or specify a valid 3-letter origin country code (e.g. IND, USA, BRA).");
+              return;
+            }
+            actionsRow.innerHTML = `
+              <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                <span class="status-dot" style="background:var(--accent);"></span>
+                Origin authorized (${finalOrigin}). Resuming LangGraph workflow...
+              </div>
+            `;
+            resolve({
+              approved: true,
+              origin_country: finalOrigin,
+              action: "clarify"
+            });
+          } else if (cpType === "plan_approval" || cpType === "approval") {
+            const checkedDestinations = Array.from(card.querySelectorAll(`#${cardId}_dest_checkboxes input:checked`)).map(el => el.value);
+            if (checkedDestinations.length === 0) {
+              alert("Please select at least one target destination market to analyze.");
+              return;
+            }
+            actionsRow.innerHTML = `
+              <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                <span class="status-dot" style="background:var(--accent);"></span>
+                Candidate markets authorized (${checkedDestinations.join(', ')}). Dispatching specialist subagents...
+              </div>
+            `;
+            resolve({
+              approved: true,
+              selected_destinations: checkedDestinations,
+              action: "approve_plan"
+            });
+          } else if (cpType === "weight_tuning" || cpType === "dossier_review") {
+            actionsRow.innerHTML = `
+              <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                <span class="status-dot" style="background:var(--accent);"></span>
+                Weights applied. Re-scoring markets and generating final synthesized dossier...
+              </div>
+            `;
+            resolve({
+              approved: true,
+              weights: currentSlidersState,
+              action: "adjust_weights"
+            });
+          } else {
+            actionsRow.innerHTML = `
+              <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                <span class="status-dot" style="background:var(--accent);"></span>
+                Action approved. Resuming workflow...
+              </div>
+            `;
+            resolve({ approved: true });
+          }
+        };
+
+        card.querySelector(`#${cardId}_btn_reject`).onclick = () => {
+          actionsRow.innerHTML = `
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--danger); display: flex; align-items: center; gap: 8px;">
+              <span class="status-dot" style="background:var(--danger);"></span>
+              Proposed action rejected by human reviewer. Stopping workflow safely.
+            </div>
+          `;
+          resolve({ approved: false, status: "rejected" });
+        };
+
+        card.querySelector(`#${cardId}_btn_cancel`).onclick = () => {
+          card.classList.add("status-cancelled");
+          actionsRow.innerHTML = `
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">
+              Decision cancelled. Thread state preserved at checkpoint.
+            </div>
+          `;
+          cancel();
+        };
+
+        return card;
+      }
+    });
+
+
+
+    /**
+     * Dynamically render the workflow stepper based on actual agent execution steps.
+     */
+    function renderDynamicAgentStepper(assistantBlock, steps, data) {
+      const ledger = assistantBlock.querySelector('#activeStepper');
+      if (!ledger) return;
+      const flow = ledger.querySelector('.stepper-flow');
+      if (!flow) return;
+
+      if (!steps || steps.length === 0) {
+        steps = [
+          {
+            id: 'st_intent',
+            label: 'Inquiry Intent & Route Auditing',
+            description: `Intent verified as '${data.query_intent || 'trade_advisory'}'`,
+            status: 'done'
+          },
+          {
+            id: 'st_specialists',
+            label: 'Specialist Subagent Coordination',
+            description: data.subagents_dispatched && data.subagents_dispatched.length > 0 
+              ? `Dispatched: ${data.subagents_dispatched.map(a => formatAgentName(a)).join(', ')}`
+              : 'Direct ReAct supervisor synthesis',
+            status: 'done'
+          },
+          {
+            id: 'st_synth',
+            label: 'Intelligence Synthesis & Evidence Audit',
+            description: `Verified ${data.evidence_count || 0} empirical evidence records`,
+            status: data.status === 'completed' ? 'done' : 'running'
+          }
+        ];
+      }
+
+      let html = '';
+      steps.forEach((st, idx) => {
+        const num = String(idx + 1).padStart(2, '0');
+        const statusClass = st.status || 'done';
+        const badgeHtml = st.badge 
+          ? `<span class="agent-chip" style="margin-left:8px;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(st.badge)}</span>` 
+          : '';
+        const icon = statusClass === 'done' ? '✓' : (statusClass === 'running' ? '⚡' : (statusClass === 'bypassed' ? '—' : num));
+        html += `
+          <div class="stepper-row ${statusClass}" id="${st.id || ('st-' + idx)}">
+            <span class="step-num">${icon}</span>
+            <div class="step-content">
+              <span class="step-desc"><strong>${escapeHtml(st.label)}</strong>${badgeHtml}</span>
+              <span class="step-sub">${escapeHtml(st.description || '')}</span>
+              ${st.details ? `<span class="step-sub" style="font-size:11px;color:var(--ink-muted);margin-top:2px;">${escapeHtml(st.details)}</span>` : ''}
+            </div>
+          </div>
+        `;
+      });
+      flow.innerHTML = html;
+
+      const statusText = assistantBlock.querySelector('.stepper-main-status') || assistantBlock.querySelector('span');
+      if (statusText) {
+        if (data.status === 'awaiting_human_review') {
+          statusText.innerHTML = `<strong>Awaiting Human-in-the-Loop decision</strong>. Action required below:`;
+        } else if (data.status === 'completed') {
+          statusText.innerHTML = `Workflow completed. Verified ${data.evidence_count || 0} empirical evidence records.`;
+        }
+      }
+    }
+
+    /**
+     * Dispatch CopilotKit ApprovalCard for active interrupt state or complete response.
+     */
+    function handleNextHitlOrComplete(data, assistantBlock, query) {
+      if (data.ui_actions && Array.isArray(data.ui_actions) && data.ui_actions.length > 0) {
+        data.ui_actions.forEach(action => {
+          CopilotKitRuntime.executeAction(action.name, action.parameters);
+        });
+      }
+
+      if (data.status === "awaiting_human_review") {
+        renderDynamicAgentStepper(assistantBlock, data.steps || [], data);
+        const interruptPayload = {
+          id: data.interrupt_id || data.run_id || ("int_" + Date.now()),
+          type: (data.interrupt_data && data.interrupt_data.type) || (data.checkpoint === "clarification" ? "clarification" : (data.checkpoint === "plan_approval" ? "approval" : "weight_tuning")),
+          message: data.direct_answer || (data.interrupt_data && data.interrupt_data.message) || "Human-in-the-Loop authorization required.",
+          metadata: data.interrupt_data || {
+            type: data.checkpoint,
+            checkpoint: data.checkpoint,
+            title: "Authorization Required",
+            message: data.direct_answer,
+            options: data.options || [],
+            weights: data.scoring_weights
+          }
+        };
+
+        const assistantBody = assistantBlock.querySelector(".msg-body-assistant");
+        
+        // Render ApprovalCard using CopilotKit useInterrupt API
+        const cardElement = ApprovalCard.renderCard({
+          interrupt: interruptPayload,
+          resolve: async (decision) => {
+            try {
+              const resp = await fetch("/api/v1/research/resume", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  thread_id: currentThreadId,
+                  action: decision.action || (decision.approved !== false ? "approve" : "reject"),
+                  approved: decision.approved !== false,
+                  decision: decision,
+                  origin_country: decision.origin_country,
+                  selected_destinations: decision.selected_destinations,
+                  weights: decision.weights
+                })
+              });
+              const nextData = await resp.json();
+              renderDynamicAgentStepper(assistantBlock, nextData.steps || [], nextData);
+              handleNextHitlOrComplete(nextData, assistantBlock, query);
+            } catch (err) {
+              const errDiv = document.createElement("div");
+              errDiv.className = "notice-box warn";
+              errDiv.innerText = `Connection error resuming workflow: ${err.message}`;
+              assistantBody.appendChild(errDiv);
+            }
+          },
+          cancel: () => {
+            const cancelNotice = document.createElement("div");
+            cancelNotice.className = "notice-box";
+            cancelNotice.style.borderLeftColor = "var(--ink-muted)";
+            cancelNotice.innerText = "Execution paused at interrupt checkpoint. Session remains active in conversation ledger.";
+            assistantBody.appendChild(cancelNotice);
+          }
+        });
+
+        assistantBody.appendChild(cardElement);
+
+      } else if (data.status === "completed") {
+        renderDynamicAgentStepper(assistantBlock, data.steps || [], data);
+        handleFinalReportDisplay(data, assistantBlock, query);
+      }
+    }
+
     async function handleSendAction() {
+      if (isProcessing) return;
+
       const input = document.getElementById('queryInput');
       const query = input.value.trim();
-      if (!query || isProcessing) return;
+      if (!query) return;
 
-      appendUserMessage(query);
+      // Render User Message
+      appendUserMessage(escapeHtml(query));
       input.value = '';
 
-      // Initialize session if first turn
-      const isFirstTurn = !currentThreadId;
       if (!currentThreadId) {
         currentThreadId = 'tp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
       }
@@ -1785,57 +3492,22 @@
       isProcessing = true;
       document.getElementById('sendActionBtn').disabled = true;
 
-      // Render vertical hairline stepper with actual backend graph stages
+      // Render dynamic agent execution workflow ledger
       const assistantBlock = appendAssistantMessage(`
-        <span class="stepper-main-status">Dispatching inquiry to LangGraph ReAct workflow...</span>
+        <span class="stepper-main-status">Agent formulating execution plan & orchestrating specialist tools...</span>
         <div class="stepper-ledger" id="activeStepper">
-          <div class="stepper-heading">Graph Execution Stages</div>
+          <div class="stepper-heading">Agent Execution Workflow</div>
           <div class="stepper-flow">
-            <div class="stepper-row running" id="st-01">
-              <span class="step-num">01</span>
+            <div class="stepper-row running">
+              <span class="step-num">⚡</span>
               <div class="step-content">
-                <span class="step-desc"><strong>validate_request</strong>: Schema, HS Code & Route Validation</span>
-                <span class="step-sub" id="st-sub-01">Auditing payload integrity and parameters...</span>
-              </div>
-            </div>
-            <div class="stepper-row pending" id="st-02">
-              <span class="step-num">02</span>
-              <div class="step-content">
-                <span class="step-desc"><strong>react_supervisor</strong>: Dynamic Specialist Subagent Coordination</span>
-                <span class="step-sub" id="st-sub-02">Waiting for supervisor dispatch...</span>
-              </div>
-            </div>
-            <div class="stepper-row pending" id="st-03">
-              <span class="step-num">03</span>
-              <div class="step-content">
-                <span class="step-desc"><strong>deterministic_scoring</strong>: Empirical Tariff & Market Friction Math</span>
-                <span class="step-sub" id="st-sub-03">Awaiting quantitative calculations...</span>
-              </div>
-            </div>
-            <div class="stepper-row pending" id="st-04">
-              <span class="step-num">04</span>
-              <div class="step-content">
-                <span class="step-desc"><strong>generate_report</strong>: Intelligence Synthesis & Evidence Audit</span>
-                <span class="step-sub" id="st-sub-04">Awaiting dossier compilation...</span>
+                <span class="step-desc"><strong>Dynamic Orchestration</strong>: Supervisor evaluating inquiry intent</span>
+                <span class="step-sub">Selecting domain skills and specialist subagents...</span>
               </div>
             </div>
           </div>
         </div>
       `);
-
-      // Dynamic advance to step 2 while network executes
-      const stepTimer = setTimeout(() => {
-        const s1 = assistantBlock.querySelector('#st-01');
-        const sub1 = assistantBlock.querySelector('#st-sub-01');
-        const s2 = assistantBlock.querySelector('#st-02');
-        const sub2 = assistantBlock.querySelector('#st-sub-02');
-        if (s1 && s2) {
-          s1.className = 'stepper-row done';
-          if (sub1) sub1.innerText = '✓ Parameters verified';
-          s2.className = 'stepper-row running';
-          if (sub2) sub2.innerText = 'Coordinating specialist tools & skills...';
-        }
-      }, 700);
 
       try {
         const response = await fetch('/api/v1/research', {
@@ -1843,214 +3515,26 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: query,
-            thread_id: currentThreadId
+            thread_id: currentThreadId,
+            enable_hitl: enableHitlMode
           })
         });
 
         const data = await response.json();
-        clearTimeout(stepTimer);
 
-        if (response.ok && data.status === 'completed') {
+        if (response.ok && data.status === 'awaiting_human_review') {
           if (data.thread_id) {
             currentThreadId = data.thread_id;
           }
-          const hasRankings = data.rankings && data.rankings.length > 0;
-          const directAns = data.direct_answer;
-          const dispatched = data.subagents_dispatched || [];
+          renderDynamicAgentStepper(assistantBlock, data.steps || [], data);
+          handleNextHitlOrComplete(data, assistantBlock, query);
 
-          // Step 1: validate_request
-          const s1 = assistantBlock.querySelector('#st-01');
-          const sub1 = assistantBlock.querySelector('#st-sub-01');
-          if (s1) s1.className = 'stepper-row done';
-          if (sub1) sub1.innerText = `✓ Verified input & classified intent as '${data.query_intent || (hasRankings ? 'comprehensive_feasibility' : 'trade_advisory')}'`;
-
-          // Step 2: react_supervisor
-          const s2 = assistantBlock.querySelector('#st-02');
-          const sub2 = assistantBlock.querySelector('#st-sub-02');
-          if (s2) s2.className = 'stepper-row done';
-          if (sub2) {
-            if (dispatched.length > 0) {
-              sub2.innerHTML = `✓ Coordinated ${dispatched.length} specialist${dispatched.length > 1 ? 's' : ''}:
-                <div class="agent-chips-strip">
-                  ${dispatched.map(a => `<span class="agent-chip">${escapeHtml(formatAgentName(a))}</span>`).join('')}
-                </div>`;
-            } else {
-              sub2.innerText = '✓ Direct ReAct supervisor synthesis';
-            }
+        } else if (response.ok && data.status === 'completed') {
+          if (data.thread_id) {
+            currentThreadId = data.thread_id;
           }
-
-          // Step 3: deterministic_scoring (highlighted or bypassed based on backend execution)
-          const s3 = assistantBlock.querySelector('#st-03');
-          const sub3 = assistantBlock.querySelector('#st-sub-03');
-          if (hasRankings) {
-            if (s3) s3.className = 'stepper-row done';
-            if (sub3) sub3.innerText = `✓ Evaluated & scored ${data.rankings.length} target markets with deterministic algorithms`;
-          } else {
-            if (s3) s3.className = 'stepper-row bypassed';
-            if (sub3) sub3.innerText = '— Bypassed: General advisory inquiry, empirical destination scoring not required';
-          }
-
-          // Step 4: generate_report
-          const s4 = assistantBlock.querySelector('#st-04');
-          const sub4 = assistantBlock.querySelector('#st-sub-04');
-          if (s4) s4.className = 'stepper-row done';
-          if (sub4) sub4.innerText = `✓ Synthesized response with ${data.evidence_count || 0} audited evidence records`;
-
-          // Update Document Headers
-          const now = new Date();
-          document.getElementById('docSerial').innerText = `DOSSIER ID: ${data.run_id ? data.run_id.slice(0, 8).toUpperCase() : 'TP-LEDGER'}`;
-          document.getElementById('docTimestamp').innerText = `DATE: ${now.toISOString().slice(0, 10)}`;
-          document.getElementById('reportTitle').innerText = hasRankings
-            ? `Export Market Study: ${escapeHtml(query.slice(0, 60))}`
-            : `Trade Advisory: ${escapeHtml(query.slice(0, 60))}`;
-          document.getElementById('reportSubtitle').innerText = hasRankings
-            ? `Synthesized across ${data.rankings.length} target destinations with ${data.evidence_count || 0} cited data points.`
-            : `Direct advisory guidance synthesized with ${data.evidence_count || 0} verified data points.`;
-
-          // Parse Markdown properly via marked.js
-          const rawMd = data.report_markdown || directAns || '';
-          let renderedHtml = '';
-          if (window.marked && typeof window.marked.parse === 'function') {
-            marked.setOptions({ gfm: true, breaks: true });
-            renderedHtml = marked.parse(rawMd);
-          } else {
-            renderedHtml = fallbackMarkdown(rawMd);
-          }
-
-          if (data.evidence_count === 0 && hasRankings) {
-            renderedHtml += `
-              <div class="notice-box warn">
-                <strong>Evidence Audit:</strong> No observational records collected for this specific query scope. Primary data points require secondary customs catalog inspection.
-              </div>
-            `;
-          }
-
-          // Append structured Market Rankings Ledger Table if present
-          if (hasRankings) {
-            renderedHtml += `
-              <h2 style="font-family: var(--font-serif); font-size: 19px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin: 28px 0 12px 0;">
-                Target Market Prioritization Ledger
-              </h2>
-              <table class="ledger-table" aria-label="Market Rankings Matrix">
-                <thead>
-                  <tr>
-                    <th style="width: 10%;">Rank</th>
-                    <th style="width: 25%;">Destination</th>
-                    <th style="width: 20%;">Composite Fit</th>
-                    <th style="width: 20%;">Demand Growth</th>
-                    <th style="width: 25%;">Applied Tariff (MFN)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${data.rankings.map(r => `
-                    <tr>
-                      <td style="font-family: var(--font-mono); font-weight:600;">#${r.rank}</td>
-                      <td><strong>${r.country}</strong></td>
-                      <td>
-                        <div class="metric-cell-score">
-                          <span class="metric-num">${Math.round(r.overall_score || 0)}/100</span>
-                          <div class="metric-hairline-track">
-                            <div class="metric-hairline-fill" style="width: ${Math.min(Math.round(r.overall_score || 0), 100)}%;"></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style="font-family: var(--font-mono); color: ${r.demand_growth_pct >= 0 ? 'var(--ok)' : 'var(--danger)'};">
-                        ${r.demand_growth_pct !== undefined ? (r.demand_growth_pct > 0 ? '+' : '') + r.demand_growth_pct + '%' : 'N/A'}
-                      </td>
-                      <td style="font-family: var(--font-mono);">
-                        ${r.tariff_rate_pct !== undefined ? r.tariff_rate_pct + '%' : '0.0%'}
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            `;
-          }
-
-          document.getElementById('reportContent').innerHTML = renderedHtml;
-
-          // Update sidebar assistant note and render direct answer into chat stream
-          const assistantBody = assistantBlock.querySelector('.msg-body-assistant');
-          const statusText = assistantBlock.querySelector('.stepper-main-status') || assistantBlock.querySelector('span');
-          
-          if (hasRankings) {
-            if (statusText) statusText.innerHTML = `Export study completed. <strong>${data.rankings.length} target markets scored</strong>. Dossier document opened at right.`;
-            openReportPanel();
-          } else {
-            if (statusText) statusText.innerHTML = `Inquiry processed. Direct advisory answer provided below.`;
-            closeReportPanel();
-          }
-
-          // Render direct textual answer into the left chat dialogue stream
-          const textToDisplay = directAns || (!hasRankings ? data.report_markdown : null);
-          if (textToDisplay && assistantBody) {
-            let answerHtml = '';
-            if (window.marked && typeof window.marked.parse === 'function') {
-              answerHtml = marked.parse(textToDisplay);
-            } else {
-              answerHtml = fallbackMarkdown(textToDisplay);
-            }
-            const answerDiv = document.createElement('div');
-            answerDiv.className = 'chat-direct-answer';
-            answerDiv.style.marginTop = '12px';
-            answerDiv.style.paddingTop = '10px';
-            answerDiv.style.borderTop = '1px solid var(--rule)';
-            answerDiv.style.lineHeight = '1.6';
-            answerDiv.innerHTML = answerHtml;
-
-            // For advisory queries, provide an on-demand button to open the full dossier document
-            if (!hasRankings) {
-              const btnOpen = document.createElement('button');
-              btnOpen.className = 'view-dossier-pill-btn';
-              btnOpen.innerHTML = `
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                </svg>
-                View Synthesized Dossier Document
-              `;
-              btnOpen.onclick = openReportPanel;
-              answerDiv.appendChild(btnOpen);
-            }
-
-            assistantBody.appendChild(answerDiv);
-          }
-
-          // Persist Session & History
-          const sessions = getStoredSessions();
-          let currentSession = sessions.find(s => s.id === currentThreadId);
-          if (!currentSession) {
-            currentSession = {
-              id: currentThreadId,
-              title: query.length > 36 ? query.slice(0, 36) + '...' : query,
-              timestamp: Date.now(),
-              messages: [],
-              rankings: data.rankings || [],
-              report_markdown: data.report_markdown || '',
-              evidence_count: data.evidence_count || 0
-            };
-            sessions.unshift(currentSession);
-          } else {
-            currentSession.timestamp = Date.now();
-            if (hasRankings) {
-              currentSession.rankings = data.rankings;
-              currentSession.report_markdown = data.report_markdown;
-            }
-          }
-
-          // Append turns
-          currentSession.messages.push({
-            role: 'user',
-            text: query
-          });
-          currentSession.messages.push({
-            role: 'assistant',
-            html: assistantBlock.querySelector('.msg-body-assistant') ? assistantBlock.querySelector('.msg-body-assistant').innerHTML : ''
-          });
-
-          saveStoredSessions(sessions);
-          renderHistoryList();
-          document.getElementById('currentSessionLabel').innerText = `Thread // ${escapeHtml(currentSession.title.slice(0, 24))}`;
+          renderDynamicAgentStepper(assistantBlock, data.steps || [], data);
+          handleFinalReportDisplay(data, assistantBlock, query);
 
         } else if (data.status === 'interrupted') {
           assistantBlock.innerHTML += `
@@ -2105,5 +3589,6 @@
     // Initialize session and history on startup
     initHistorySidebar();
   </script>
+  <div class="copilot-toast-container" id="copilotToastContainer"></div>
 </body>
 </html>
